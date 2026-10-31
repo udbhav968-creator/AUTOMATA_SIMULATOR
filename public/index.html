@@ -104,15 +104,17 @@ function runNFA(w){let S=key(clo([N.start]));const tr=[{sym:"start",set:S}];
 function runDFA(w){let s=0;const p=[0];for(const c of w){if(!(s+"|"+c in M.tm))return{p,acc:false,bad:c};s=M.tm[s+"|"+c];p.push(s)}return{p,acc:M.D[s].fin}}
 function layout(){const lay={0:0},L=[0];for(let i=0;i<L.length;i++)for(const t of M.trans)if(t.f===L[i]&&!(t.t in lay)){lay[t.t]=lay[L[i]]+1;L.push(t.t)}
  const cnt={};Object.values(lay).forEach(l=>cnt[l]=(cnt[l]||0)+1);const mx=Math.max(...Object.values(cnt)),seen={};
- return M.D.map((_,i)=>{const l=lay[i];seen[l]=(seen[l]||0);const y=50+(mx-cnt[l])*38+seen[l]++*76;return{x:60+l*125,y}})}
-function draw(){const P=layout(),R=22,cs=M.steps[cur],W=Math.max(...P.map(p=>p.x))+70,H=Math.max(...P.map(p=>p.y))+60;
- const vis=i=>M.disc[i]<=cur;let h=`<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--mut)"/></marker><marker id="ac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--ac)"/></marker></defs>`;
+ return M.D.map((_,i)=>{const l=lay[i];seen[l]=(seen[l]||0);const y=125+(mx-cnt[l])*48+seen[l]++*96;return{x:60+l*150,y}})}
+function draw(){const P=layout(),R=22,cs=M.steps[cur],W=Math.max(...P.map(p=>p.x))+60,H=Math.max(...P.map(p=>p.y))+110;
+ const vis=i=>M.disc[i]<=cur;let h=`<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--mut)"/></marker><marker id="ac" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--ac)"/></marker></defs>`;
  const g={};M.trans.filter(t=>t.step<=cur).forEach(t=>{const k=t.f+"|"+t.t;(g[k]=g[k]||{f:t.f,t:t.t,l:[],c:false}).l.push(t.c);if(t.step===cur)g[k].c=true});
  for(const e of Object.values(g)){const a=P[e.f],b=P[e.t],cl=e.c?"ed cur":"ed",mk=e.c?"ac":"ar",lab=e.l.join(",");
-  if(e.f===e.t){h+=`<path class="${cl}" d="M${a.x-10},${a.y-R+3} C${a.x-34},${a.y-68} ${a.x+34},${a.y-68} ${a.x+10},${a.y-R-1}" marker-end="url(#${mk})"/><text class="lb" x="${a.x}" y="${a.y-58}">${esc(lab)}</text>`;continue}
-  const dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy),ux=dx/L,uy=dy/L,rev=g[e.t+"|"+e.f]!==undefined,o=rev?32:0,cx=(a.x+b.x)/2-uy*o,cy=(a.y+b.y)/2+ux*o;
-  const sx=a.x+ux*R,sy=a.y+uy*R,ex=b.x-ux*(R+3),ey=b.y-uy*(R+3),lx=.25*sx+.5*cx+.25*ex,ly=.25*sy+.5*cy+.25*ey;
-  h+=`<path class="${cl}" d="M${sx},${sy} Q${cx},${cy} ${ex},${ey}" marker-end="url(#${mk})"/><text class="lb" x="${lx}" y="${ly-5}">${esc(lab)}</text>`}
+  if(e.f===e.t){h+=`<path class="${cl}" d="M${a.x-10},${a.y-R+3} C${a.x-34},${a.y-68} ${a.x+34},${a.y-68} ${a.x+10},${a.y-R-1}" marker-end="url(#${mk})"/><text class="lb" x="${a.x}" y="${a.y-64}">${esc(lab)}</text>`;continue}
+  const dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy),ux=dx/L,uy=dy/L,rev=g[e.t+"|"+e.f]!==undefined;
+  const blk=M.D.some((_,j)=>{if(j===e.f||j===e.t||!vis(j))return false;const q=P[j],t=(q.x-a.x)*ux+(q.y-a.y)*uy;return t>0&&t<L&&Math.abs((q.x-a.x)*uy-(q.y-a.y)*ux)<R+14}),o=blk?(dx<0?150:80):rev?44:0,cx=(a.x+b.x)/2-uy*o,cy=(a.y+b.y)/2+ux*o;
+  const d1=Math.hypot(cx-a.x,cy-a.y),d2=Math.hypot(cx-b.x,cy-b.y),ra=R+(M.D[e.f].fin?5:0),rb=R+(M.D[e.t].fin?8:3),sx=a.x+(cx-a.x)/d1*ra,sy=a.y+(cy-a.y)/d1*ra,ex=b.x+(cx-b.x)/d2*rb,ey=b.y+(cy-b.y)/d2*rb;
+  const mx=.25*sx+.5*cx+.25*ex,my=.25*sy+.5*cy+.25*ey,ox=mx-(sx+ex)/2,oy=my-(sy+ey)/2,ol=Math.hypot(ox,oy)||1,lx=o?mx+ox/ol*12:mx,ly=o?my+oy/ol*12+4:my-7;
+  h+=`<path class="${cl}" d="M${sx},${sy} Q${cx},${cy} ${ex},${ey}" marker-end="url(#${mk})"/><text class="lb" x="${lx}" y="${ly}">${esc(lab)}</text>`}
  M.D.forEach((d,i)=>{if(!vis(i))return;const p=P[i],c=(cs.from===i?" cur":"")+(cs.to===i&&cs.isNew?" nw":"");
   h+=`<g><title>D${i} = ${esc(fs(d.set))}</title>${d.fin?`<circle class="nd" cx="${p.x}" cy="${p.y}" r="${R+5}"/>`:""}<circle class="nd${c}" cx="${p.x}" cy="${p.y}" r="${R}"/><text class="nm" x="${p.x}" y="${p.y}">${d.set.length?"D"+i:"∅"}</text></g>`});
  h+=`<path class="ed" d="M8,${P[0].y} L${P[0].x-R-(M.D[0].fin?5:0)-3},${P[0].y}" marker-end="url(#ar)"/>`;
