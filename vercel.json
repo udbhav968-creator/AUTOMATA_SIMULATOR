@@ -1,9 +1,11 @@
 {
-  "functions": {
-    "api/index.js": {
-      "includeFiles": "{lib,data,public}/**",
-      "maxDuration": 60
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node",
+      "config": { "includeFiles": ["server.js", "lib/**", "data/**", "public/**"] }
     }
-  },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
+  ],
+  "routes": [{ "src": "/(.*)", "dest": "/api/index.js" }]
 }
