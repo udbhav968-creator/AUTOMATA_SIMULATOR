@@ -42,7 +42,15 @@ http.createServer(async (req, res) => {
     if (p === "/api/questions") {
       let qs = load();
       if (req.method === "GET") return send(res, 200, qs);
-      if (req.method === "POST") { const b = await body(req); A.parse(b.src); qs.push({ id: Date.now().toString(36), text: String(b.text || "Convert this NFA to a DFA.").slice(0, 500), src: String(b.src), at: new Date().toISOString() }); save(qs); return send(res, 200, qs); }
+      if (req.method === "POST") {
+        const b = await body(req), text = String(b.text || "").trim();
+        if (text.length < 5) throw new Error("Question text must be at least 5 characters.");
+        A.build(A.parse(b.src));
+        const rec = { id: String(b.id || Date.now().toString(36)), text: text.slice(0, 500), src: String(b.src).slice(0, 5000), marks: Math.min(Math.max(+b.marks || 5, 1), 20), level: ["Easy", "Medium", "Hard"].includes(b.level) ? b.level : "Medium", at: new Date().toISOString() };
+        const i = qs.findIndex(q => q.id === rec.id); if (i >= 0) qs[i] = rec; else qs.push(rec);
+        if (qs.length > 200) throw new Error("Question library is full (200).");
+        save(qs); return send(res, 200, qs);
+      }
       if (req.method === "DELETE") { qs = qs.filter(q => q.id !== u.searchParams.get("id")); save(qs); return send(res, 200, qs); }
     }
     if (p === "/api/chat" && req.method === "POST") return send(res, 200, await chat(await body(req)));

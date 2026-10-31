@@ -31,6 +31,7 @@ NFA format: `states:`, `start:`, `final:`, then `q0,a = q0,q1`; use `ε` or `e` 
 | Page | Purpose |
 |---|---|
 | `/` Simulator | step-by-step subset construction, diagram, string tracer, Question Lab, AI tutor, share link, JSON import/export |
+| `/questions.html` | Question Builder: build any NFA with a form, live validation, model solution, save, edit, solve in the simulator |
 | `/theory.html` | M1 evidence: problem definition, pseudocode, complexity, architecture, edge-case list |
 | `/explorer.html` | language properties (empty / universal / finite / shortest strings) and A ≡ B equivalence |
 | `/tests.html` | 20 automated edge-case tests, expected vs actual |
