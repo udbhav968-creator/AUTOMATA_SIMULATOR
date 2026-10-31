@@ -19,7 +19,7 @@
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   let uidCounter = 0;
 
-  const NAME_W = 7.8, SUB_W = 6.4, LABEL_W = 7.6, MAX_R = 46, MIN_R = 22, RING = 5;
+  const NAME_W = 9.2, SUB_W = 7.1, LABEL_W = 9, MAX_R = 50, MIN_R = 24, RING = 5.5;
 
   class GraphView {
     constructor(host, opts) {
@@ -49,8 +49,8 @@
         </div>
         <svg class="graph" xmlns="${NS}" role="img" aria-label="${esc(this.opts.title || "State diagram")}">
           <defs>
-            ${["def", "eps", "hot"].map(k => `<marker id="${this.uid}-${k}" viewBox="0 0 10 10" refX="9.2" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M0,0.6 L10,5 L0,9.4 z" style="fill:var(${k === "def" ? "--graphite" : k === "eps" ? "--eps" : "--marker"})"/></marker>`).join("")}
-            <marker id="${this.uid}-start" viewBox="0 0 10 10" refX="9.2" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto"><path d="M0,0.6 L10,5 L0,9.4 z" style="fill:var(--ink)"/></marker>
+            ${["def", "eps", "hot"].map(k => `<marker id="${this.uid}-${k}" viewBox="0 0 10 10" refX="9.2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0,0.6 L10,5 L0,9.4 z" style="fill:var(${k === "def" ? "--edge" : k === "eps" ? "--eps" : "--marker"})"/></marker>`).join("")}
+            <marker id="${this.uid}-start" viewBox="0 0 10 10" refX="9.2" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><path d="M0,0.6 L10,5 L0,9.4 z" style="fill:var(--ink)"/></marker>
           </defs>
           <g class="vp"><g class="edges"></g><g class="labels"></g><g class="nodes"></g><g class="tokens"></g></g>
         </svg>
@@ -272,7 +272,7 @@
         g.loop = null;
         const side = best.off === 0 ? 1 : Math.sign(best.off);
         g.labelCands = [];
-        for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.22, 0.78]) for (const dist of [11, 19]) for (const sd of [side, -side]) {
+        for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.22, 0.78]) for (const dist of [13, 22]) for (const sd of [side, -side]) {
           const p = quad(s, best.off === 0 ? { x: (s.x + e.x) / 2, y: (s.y + e.y) / 2 } : c, e, t);
           g.labelCands.push({ x: p.x + nx * sd * dist, y: p.y + ny * sd * dist });
         }
@@ -290,7 +290,7 @@
       const hitsBox = (bx, self) => boxes.some(o => o.loop !== self && bx.x1 < o.x2 && bx.x2 > o.x1 && bx.y1 < o.y2 && bx.y2 > o.y1);
       const ordered = groups.slice().sort((x, y) => (y.from === y.to) - (x.from === x.to));
       for (const g of ordered) {
-        const text = g.syms.join(","), w = text.length * LABEL_W + 8, h = 17;
+        const text = g.syms.join(","), w = text.length * LABEL_W + 10, h = 20;
         let chosen = null;
         for (const p of g.labelCands) {
           const bx = { x1: p.x - w / 2, x2: p.x + w / 2, y1: p.y - h / 2, y2: p.y + h / 2 };
@@ -432,8 +432,11 @@
       if (!this.g) return;
       const W = this.host.clientWidth || 600, H = this.host.clientHeight || 360, b = this.bounds();
       const pad = 34, top = this.opts.title ? 30 : 10;
-      const k = Math.min(1.35, (W - pad * 2) / Math.max(1, b.x2 - b.x1), (H - pad * 2 - top) / Math.max(1, b.y2 - b.y1));
-      this.view = { k, x: (W - (b.x2 - b.x1) * k) / 2 - b.x1 * k, y: top / 2 + (H - (b.y2 - b.y1) * k) / 2 - b.y1 * k };
+      const fitK = Math.min(1.4, (W - pad * 2) / Math.max(1, b.x2 - b.x1), (H - pad * 2 - top) / Math.max(1, b.y2 - b.y1));
+      const k = Math.max(this.opts.minScale || 0.72, fitK);
+      const wide = (b.x2 - b.x1) * k > W - pad * 2;
+      // when the diagram is wider than the canvas at a readable size, keep the start state in view; drag to pan
+      this.view = { k, x: wide ? pad - b.x1 * k : (W - (b.x2 - b.x1) * k) / 2 - b.x1 * k, y: top / 2 + (H - (b.y2 - b.y1) * k) / 2 - b.y1 * k };
       this.userMoved = false;
       this.paintTransform();
     }

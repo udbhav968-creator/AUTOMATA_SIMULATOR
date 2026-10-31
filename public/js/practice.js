@@ -30,6 +30,7 @@
   async function newQuestion(forced) {
     let type = typeSel.value;
     const diff = $("#pDiff").value, source = $("#pSource").value;
+    if (source === "own" && !forced) { tab("own"); return; }
     store.set("practice.type", type); store.set("practice.diff", diff);
     if (type === "any") { const ts = Object.keys(Q.TYPES).filter(t => t !== "short"); type = ts[Math.floor(Math.random() * ts.length)]; }
     $("#pHintBox").innerHTML = "";
@@ -253,6 +254,7 @@
     : { page: "Practice", question: pq ? pq.prompt + (pq.src ? "\nAutomaton:\n" + pq.src : "") + (pq.data && pq.data.strings ? "\nStrings: " + pq.data.strings.join(", ") : "") : "", questionObj: pq, answer: pctl ? JSON.stringify(pctl.collect()).slice(0, 800) : "", automaton: pq && pq.src };
   Studio.chatChips = ["Give me a hint", "Why is my answer wrong?", "Explain the Bloom level of this question"];
   paintStats();
+  Importer.mount($("#importHost"), { mode: "practice", onPractise: q => { tab("practice"); show(q); window.scrollTo({ top: 0, behavior: "smooth" }); } });
 
   const saved = store.get("exam.current", null);
   const h = Studio.takeHandoff("practice.html");

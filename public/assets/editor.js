@@ -38,6 +38,7 @@
         <div class="row" style="margin-bottom:10px">
           <select class="ex" aria-label="Load an example" style="flex:1;min-width:150px">
             <option value="">Load an example…</option>
+            <option value="__q">✎ Type a question in words…</option>
             ${this.examples.map((e, i) => `<option value="${i}">${esc(e.name)}</option>`).join("")}
           </select>
           ${this.opts.random ? `<button class="btn sm" data-a="random" title="Generate a random ${this.opts.kind === "dfa" ? "DFA" : "NFA"}">Random</button>` : ""}
@@ -46,6 +47,7 @@
           <button type="button" role="tab" data-mode="text" aria-selected="true">Text</button>
           <button type="button" role="tab" data-mode="table" aria-selected="false">Table</button>
           ${this.opts.regex ? '<button type="button" role="tab" data-mode="regex" aria-selected="false">From regex</button>' : ""}
+          <button type="button" role="tab" data-mode="question" aria-selected="false">From a question</button>
         </div>
         <div data-pane="text">
           <textarea class="code" spellcheck="false" autocapitalize="off" autocomplete="off" rows="${this.opts.rows}" aria-label="Automaton definition"></textarea>
@@ -60,6 +62,12 @@
           <button class="btn" data-a="regex">Build ε-NFA (Thompson)</button>
           <div class="re-out small" style="margin-top:8px"></div>
         </div>
+        <div data-pane="question" hidden>
+          <label class="field">Type your question<textarea class="qtext" rows="5" spellcheck="true" placeholder="e.g. Design a DFA over {a,b} that accepts strings ending with abb"></textarea></label>
+          <div class="row" style="margin-top:8px"><button class="btn" data-a="fromq">Build the automaton</button><button class="btn sm quiet" data-a="qexample">Try an example</button></div>
+          <details class="hint" style="margin:8px 0 0"><summary>What can I type?</summary>Works with a language in words (ending with, starting with, containing, not containing, even/odd number of…, length divisible by…, exactly/at least/at most n…, binary divisible by k, combined with “and”/“or”), a regular expression, or an automaton written in the question (δ lines or a transition table). With Gemini set up, other wordings are sent to Gemini and checked by the engine.</details>
+          <div class="q-out" style="margin-top:8px"></div>
+        </div>
         <div class="status-line" aria-live="polite"></div>
         <div class="row" style="margin-top:10px">
           <button class="btn primary" data-a="run">${esc(this.opts.runLabel)}</button>
@@ -68,7 +76,13 @@
         </div>`;
       this.ta = host.querySelector("textarea");
       this.status = host.querySelector(".status-line");
-      host.querySelector(".ex").addEventListener("change", e => { const ex = this.examples[+e.target.value]; if (ex) { this.setText(ex.src, true); } e.target.value = ""; });
+      host.querySelector(".ex").addEventListener("change", e => {
+        if (e.target.value === "__q") { this.setMode("question"); host.querySelector(".qtext").focus(); }
+        else { const ex = this.examples[+e.target.value]; if (ex) this.setText(ex.src, true); }
+        e.target.value = "";
+      });
+      host.querySelector(".qtext").addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); this.fromQuestion(); } });
+      this.qIndex = 0;
       host.addEventListener("click", e => this.onClick(e));
       this.ta.addEventListener("input", Studio.debounce(() => this.validate(), 250));
       this.ta.addEventListener("keydown", e => {
@@ -89,6 +103,11 @@
       else if (a === "copy") { navigator.clipboard && navigator.clipboard.writeText(this.ta.value).then(() => Studio.toast("Automaton text copied."), () => Studio.toast("Copy failed — select the text and copy it manually.", "err")); }
       else if (a === "random") this.random();
       else if (a === "regex") this.buildRegex();
+      else if (a === "fromq") this.fromQuestion();
+      else if (a === "qexample") {
+        const ex = AutomatonInput.QUESTION_EXAMPLES[this.qIndex++ % AutomatonInput.QUESTION_EXAMPLES.length];
+        this.host.querySelector(".qtext").value = ex; this.fromQuestion();
+      }
     }
 
     setMode(m) {
@@ -157,6 +176,47 @@
       }
     }
 
+    /** Build an automaton from a question typed in words: built-in reader first, then Gemini. */
+    async fromQuestion() {
+      const ta = this.host.querySelector(".qtext"), out = this.host.querySelector(".q-out"), btn = this.host.querySelector("[data-a=fromq]");
+      const text = ta.value.trim();
+      if (text.length < 5) { out.innerHTML = '<div class="msg err">Type a question first, for example: strings over {0,1} ending with 01.</div>'; ta.focus(); return; }
+      if (text.length > 3000) { out.innerHTML = '<div class="msg err">Keep the question under 3,000 characters.</div>'; return; }
+      btn.disabled = true;
+      let r = null, note = "";
+      try {
+        r = window.Extract ? Extract.automatonFromQuestion(text) : null;
+        if (r && r.error) { out.innerHTML = `<div class="msg warn">${esc(r.error)}</div>`; return; }
+        if (!r) {
+          const h = await Studio.health();
+          if (h && !h.down && h.ai) {
+            out.innerHTML = '<div class="msg info">Not a wording the built-in reader knows — asking Gemini…</div>';
+            try {
+              const res = await Studio.api("/api/ai/automaton", { body: { question: text, kind: this.opts.kind }, timeout: 60000 });
+              if (res.regular === false) { out.innerHTML = `<div class="msg warn">Gemini says this language is not regular: ${esc(res.summary)}</div>`; return; }
+              if (!res.offline) r = { src: res.src, how: `Gemini (${res.model}) built it${res.summary ? ": " + res.summary : "."} The engine checked that it is a valid automaton — compare it with the question before relying on it.` };
+              else note = "Gemini is unavailable (" + (res.message || res.reason) + "). ";
+            } catch (e) { note = (e.offline ? "The server is offline. " : e.message + " "); }
+          }
+        }
+        if (!r) {
+          out.innerHTML = `<div class="msg err">${esc(note)}This wording was not recognised. Try phrasing it like: “strings over {a,b} ending with abb”, “even number of 0s and odd number of 1s”, “binary numbers divisible by 4”, “the regular expression (a|b)*ab”, or write the automaton as δ(q0,a) = {q1} lines.</div>`;
+          return;
+        }
+        let src = r.src, how = r.how;
+        if (this.opts.kind === "dfa") {
+          const N = Automata.parse(src);
+          if (!Automata.isDeterministic(N) || Automata.dfaProblems(N).length) { const M = Automata.build(N); src = Automata.dfaToText(N, M, "letters"); how += ` Converted to a DFA with ${M.D.length} states for minimisation.`; }
+        }
+        const firstLine = text.split("\n")[0].slice(0, 90);
+        this.setText("# " + firstLine + "\n" + src, true);
+        out.innerHTML = `<div class="msg ok">${esc(how)}</div>`;
+        Studio.store.set("editor.lastQuestion", text);
+      } catch (e) {
+        out.innerHTML = `<div class="msg err">${esc(e.message)}</div>`;
+      } finally { btn.disabled = false; }
+    }
+
     /* ---------------- table editor ---------------- */
     renderTable(N) {
       const pane = this.host.querySelector(".grid-editor");
@@ -194,6 +254,15 @@
     }
   }
 
+  AutomatonInput.QUESTION_EXAMPLES = [
+    "Design a DFA over {a,b} that accepts all strings ending with abb.",
+    "Construct an NFA for strings over {0,1} containing 101 as a substring.",
+    "Design a DFA accepting binary numbers divisible by 3.",
+    "Strings over {a,b} with an even number of a's and an odd number of b's.",
+    "Strings over {a,b} that start with a and do not contain bb.",
+    "Convert the regular expression (a|b)*abb into an ε-NFA.",
+    "Convert this NFA: δ(q0,a) = {q0,q1}, δ(q0,b) = {q0}, δ(q1,b) = {q2}; start q0, final q2."
+  ];
   AutomatonInput.NFA_EXAMPLES = NFA_EXAMPLES;
   AutomatonInput.DFA_EXAMPLES = DFA_EXAMPLES;
   window.AutomatonInput = AutomatonInput;

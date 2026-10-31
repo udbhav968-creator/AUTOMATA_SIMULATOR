@@ -61,8 +61,8 @@
       <section class="panel"><h2>12. Conclusion</h2>
         <p>The simulator converts user-defined ε-NFAs to DFAs, explains every step, minimises the result and proves each output correct by language equivalence. All ${cases.length} edge-case tests pass, including invalid input that is rejected with a specific message.</p></section>`;
 
-    const g1 = new GraphView($("#rNfa"), { title: "NFA", interactive: false }); g1.setGraph(GraphView.fromNFA(N));
-    const g2 = new GraphView($("#rDfa"), { title: "DFA", interactive: false });
+    const g1 = new GraphView($("#rNfa"), { title: "NFA", interactive: false, minScale: 0.3 }); g1.setGraph(GraphView.fromNFA(N));
+    const g2 = new GraphView($("#rDfa"), { title: "DFA", interactive: false, minScale: 0.3 });
     g2.setGraph({ nodes: M.D.map((d, i) => ({ id: "D" + i, label: "D" + i, sub: fmt(d.set), final: d.fin, start: i === 0, dead: d.dead })), edges: M.trans.map(t => ({ from: "D" + t.f, to: "D" + t.t, sym: t.c })) });
   }
   $("#gen").addEventListener("click", generate);

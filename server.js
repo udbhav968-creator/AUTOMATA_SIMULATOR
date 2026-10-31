@@ -28,7 +28,7 @@ const BASE = (process.env.GEMINI_BASE_URL || "https://generativelanguage.googlea
 const TIMEOUT = +process.env.GEMINI_TIMEOUT_MS || 30000;
 const RATE = +process.env.AI_RATE_LIMIT || 20; // AI requests per minute per client
 const DB = path.join(__dirname, "data", "questions.json"), PUB = path.join(__dirname, "public");
-const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".txt": "text/plain; charset=utf-8" };
+const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8", ".bcmap": "application/octet-stream", ".css": "text/css; charset=utf-8", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".txt": "text/plain; charset=utf-8" };
 let workingModel = null; // the first model that answered successfully
 
 /* ---------------------------------------------------------------- question bank storage */
@@ -213,6 +213,85 @@ const QUESTION_PROMPT = `Create ONE exam question for CSET302 and reply with JSO
 Automaton format (one transition per line, ε for epsilon, at most 7 states, alphabet {a,b}):
 ${FORMAT}`;
 
+const EXTRACT_PROMPT = `Extract EVERY question from this Automata Theory exam, tutorial sheet or notes. Do not invent or merge questions.
+Reply with JSON only: {"questions": [ … ]}, each item in this shape:
+{"type": one of "construct","design","accept","closure","count","classes","mcq","tf","short",
+ "text": the question as written (without the automaton, which goes in src),
+ "bloom": "Remember"|"Understand"|"Apply"|"Analyze"|"Evaluate"|"Create" (from the action verb),
+ "difficulty": "Easy"|"Medium"|"Hard", "marks": from the paper if shown, else a sensible 1-10,
+ "src": the automaton for construct/accept/closure/count/classes, rewritten in the text format below
+        (convert transition tables and diagrams; ∅ or - means no transition; → marks the start, * the final states),
+ "reference": a CORRECT automaton for design questions, "requireDFA": true if the question asks for a DFA,
+ "strings": strings to test for accept questions, "state": the state for closure questions,
+ "what": "dfa" or "minimal" for count questions,
+ "options" and "answer" (0-based index) for mcq — use the paper's answer key if it has one,
+ "answer": true/false for tf, "model": a model answer for short questions}
+Type guide: convert NFA→DFA = construct; "design/construct a DFA that accepts …" (no automaton given) = design;
+ε-closure = closure; accepted/rejected strings = accept; number of states = count; minimise a DFA = classes;
+anything else written = short. If a language is not regular (palindromes, aⁿbⁿ, equal numbers), use short and say so in the model answer.
+Automaton text format (one transition per line, ε for epsilon, letters/digits for names):
+${FORMAT}`;
+
+async function aiExtract(body) {
+  const parts = [];
+  if (body.pdf) {
+    const data = String(body.pdf).replace(/^data:[^,]*,/, "");
+    if (data.length > 21e6) throw Object.assign(new Error("The PDF is too large for Gemini (about 15 MB maximum)."), { reason: "too-large" });
+    parts.push({ inlineData: { mimeType: "application/pdf", data } });
+  } else {
+    const text = String(body.text || "").trim();
+    if (text.length < 5) throw Object.assign(new Error("Paste some questions first."), { status: 400 });
+    parts.push({ text: "MATERIAL:\n" + text.slice(0, 60000) });
+  }
+  parts.push({ text: EXTRACT_PROMPT });
+  const contents = [{ role: "user", parts }];
+  const out = await gemini(contents, TUTOR, { json: true, temperature: 0.1, maxTokens: 16384 });
+  let list;
+  try { const j = JSON.parse(out.text.replace(/^```(?:json)?\s*|\s*```$/g, "")); list = Array.isArray(j) ? j : j.questions; }
+  catch (e) { throw Object.assign(new Error("Gemini's reply was not valid JSON" + (out.truncated ? " (it was cut short; try fewer pages)" : "") + "."), { reason: "invalid" }); }
+  if (!Array.isArray(list) || !list.length) throw Object.assign(new Error("Gemini found no questions in this material."), { reason: "empty" });
+  let items = list.slice(0, 60).map(r => { const rec = Q.cleanBank({ ...(r || {}), origin: "ai" }); return { rec, problems: Q.validateBank(rec) }; });
+  // one repair round for the questions the engine rejected
+  const bad = items.map((x, i) => (x.problems.length ? i : -1)).filter(i => i >= 0);
+  if (bad.length) {
+    try {
+      const ask = "The simulator rejected these questions:\n" + bad.map(i => `#${i}: ${JSON.stringify(list[i])}\nProblems: ${items[i].problems.join(" ")}`).join("\n\n") + '\nReply with JSON only: {"fixed": [{"index": number, "question": {…corrected question…}}]}';
+      const fix = await gemini([...contents, { role: "model", parts: [{ text: out.text }] }, { role: "user", parts: [{ text: ask }] }], TUTOR, { json: true, temperature: 0.1, maxTokens: 12000 });
+      const f = JSON.parse(fix.text.replace(/^```(?:json)?\s*|\s*```$/g, ""));
+      (f.fixed || []).forEach(x => {
+        if (!items[x.index] || !x.question) return;
+        const rec = Q.cleanBank({ ...x.question, origin: "ai" }), problems = Q.validateBank(rec);
+        if (problems.length < items[x.index].problems.length) items[x.index] = { rec, problems };
+      });
+    } catch (e) { /* keep the drafts; the teacher reviews them */ }
+  }
+  return { model: out.model, drafts: items.map((x, i) => ({ index: i + 1, rec: x.rec, problems: x.problems, notes: x.problems.length ? [] : ["Read by Gemini and checked by the engine."], ready: !x.problems.length })) };
+}
+
+/** Build an automaton for a question typed in words (used by the simulators' "From a question" tab). */
+async function aiAutomaton(body) {
+  const question = String(body.question || "").trim().slice(0, 3000);
+  if (question.length < 5) throw Object.assign(new Error("Type a question first."), { status: 400 });
+  const wantDFA = body.kind === "dfa";
+  const ask = `Build ${wantDFA ? "a DFA (complete: one transition per state and symbol, add a dead state if needed)" : "an NFA or ε-NFA"} for this question:\n"""${question}"""\n` +
+    `Reply with JSON only: {"automaton": "<automaton text>", "summary": "<one sentence: the language it accepts>", "regular": true}\n` +
+    `If the language is not regular, reply {"regular": false, "summary": "<why>"}.\nAutomaton text format (one transition per line, ε for epsilon, at most 12 states):\n${FORMAT}`;
+  const contents = [{ role: "user", parts: [{ text: ask }] }];
+  for (let round = 0; round < 2; round++) {
+    const out = await gemini(contents, TUTOR, { json: true, temperature: 0.2 });
+    let j;
+    try { j = JSON.parse(out.text.replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch (e) { j = null; }
+    if (j && j.regular === false) return { regular: false, summary: String(j.summary || "This language is not regular.").slice(0, 400), model: out.model };
+    let problem = "The reply was not valid JSON.";
+    if (j && typeof j.automaton === "string") {
+      try { const N = A.parse(j.automaton); A.build(N); if (wantDFA && A.dfaProblems(N).length) problem = "Not a complete DFA: " + A.dfaProblems(N)[0]; else return { src: A.toText(N), summary: String(j.summary || "").slice(0, 400), model: out.model }; }
+      catch (e) { problem = "The automaton could not be read: " + e.message; }
+    }
+    contents.push({ role: "model", parts: [{ text: out.text }] }, { role: "user", parts: [{ text: problem + " Fix it and reply with the JSON only." }] });
+  }
+  throw Object.assign(new Error("Gemini could not produce a valid automaton for this question."), { reason: "invalid" });
+}
+
 async function aiQuestion(body) {
   const want = Q.BANK_TYPES.includes(body.type) ? body.type : null;
   const diff = ["Easy", "Medium", "Hard"].includes(body.difficulty) ? body.difficulty : "Medium";
@@ -253,6 +332,20 @@ async function api(req, res, url) {
     if (rateLimited(req)) return send(res, 200, { offline: true, reason: "rate", message: "Too many AI requests; a question was generated locally instead." });
     try { return send(res, 200, await aiQuestion(body)); }
     catch (e) { return send(res, 200, { offline: true, reason: e.reason || "error", message: e.message }); }
+  }
+
+  if (p === "/api/ai/automaton" && method === "POST") {
+    const body = await readBody(req);
+    if (rateLimited(req)) return send(res, 200, { offline: true, reason: "rate", message: "Too many AI requests right now." });
+    try { return send(res, 200, await aiAutomaton(body)); }
+    catch (e) { if (e.status) throw e; return send(res, 200, { offline: true, reason: e.reason || "error", message: e.message }); }
+  }
+
+  if (p === "/api/ai/extract" && method === "POST") {
+    const body = await readBody(req, 22e6);
+    if (rateLimited(req)) return send(res, 200, { offline: true, reason: "rate", message: "Too many AI requests; the built-in extractor was used instead." });
+    try { return send(res, 200, await aiExtract(body)); }
+    catch (e) { if (e.status) throw e; return send(res, 200, { offline: true, reason: e.reason || "error", message: e.message }); }
   }
 
   if (p === "/api/questions") {
@@ -304,7 +397,7 @@ async function api(req, res, url) {
 
 function serveStatic(req, res, url) {
   let p = decodeURIComponent(url.pathname);
-  if (p === "/automata.js" || p === "/qgen.js" || p === "/cases.js") return stream(res, path.join(__dirname, "lib", p.slice(1)));
+  if (p === "/automata.js" || p === "/qgen.js" || p === "/cases.js" || p === "/extract.js") return stream(res, path.join(__dirname, "lib", p.slice(1)));
   if (p.endsWith("/")) p += "index.html";
   const file = path.normalize(path.join(PUB, p));
   if (!file.startsWith(PUB + path.sep)) { res.writeHead(403); return res.end("Forbidden"); }
@@ -321,7 +414,7 @@ function stream(res, file) {
     "cache-control": "no-cache",
     "x-content-type-options": "nosniff",
     "referrer-policy": "same-origin",
-    "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self'"
+    "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self'"
   });
   fs.createReadStream(file).pipe(res);
 }

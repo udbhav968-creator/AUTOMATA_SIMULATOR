@@ -28,7 +28,7 @@
   function record() {
     const t = $("#type").value;
     const rec = { id: editing || undefined, type: t, text: $("#text").value, bloom: $("#bloom").value, lo: $("#lo").value, difficulty: $("#diff").value, marks: +$("#marks").value, author: $("#author").value };
-    if (["construct", "accept", "closure", "count"].includes(t)) rec.src = autoEd.getText();
+    if (["construct", "accept", "closure", "count", "classes"].includes(t)) rec.src = autoEd.getText();
     if (t === "design") { rec.reference = refEd.getText(); rec.requireDFA = $("#reqDfa").checked; }
     if (t === "accept") rec.strings = $("#strings").value.split(/\r?\n/).map(s => s.trim()).filter((s, i, a) => s || i < a.length - 1).map(s => (s === "ε" ? "" : s));
     if (t === "closure") rec.state = $("#state").value;
@@ -201,6 +201,11 @@
 
   setOptions(null, 0);
   ready = true;
+  Importer.mount($("#importHost"), {
+    mode: "bank",
+    onEdit: rec => { const copy = { ...rec }; delete copy.id; editing = null; fill(copy); $("#importBox").open = false; window.scrollTo({ top: 0, behavior: "smooth" }); Studio.toast("Loaded into the form. Check it, then press Save question."); },
+    onSaved: list => { items = list; paint(); }
+  });
   const h = Studio.takeHandoff("bank.html");
   load().then(() => { if (h && h.draft) { fill(h.draft); Studio.toast("Draft loaded from the tutor. Review it, then save."); } else blank(); });
 })();

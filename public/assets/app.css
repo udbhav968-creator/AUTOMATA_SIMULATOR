@@ -20,6 +20,7 @@
   --stop: #c93737;
   --stop-soft: #fbe3e3;
   --dot: #c5cddb;
+  --edge: #2e3850;
   --shadow: 0 1px 2px rgba(24, 33, 58, .06), 0 8px 24px rgba(24, 33, 58, .06);
   --font: "Bricolage Grotesque", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
@@ -35,7 +36,7 @@
   :root:not([data-theme="light"]) {
     --paper: #0f1424; --sheet: #161d33; --sheet-2: #1b2340; --ink: #e3e8f5; --graphite: #98a2bc; --rule: #2a3356;
     --pen: #8fa8ff; --pen-soft: #23305e; --marker: #ffc23d; --marker-soft: #4a3b12; --eps: #b794f6; --eps-soft: #352a55;
-    --go: #3fc98e; --go-soft: #143a2b; --stop: #ff7a7a; --stop-soft: #4a1d24; --dot: #2c365a;
+    --go: #3fc98e; --go-soft: #143a2b; --stop: #ff7a7a; --stop-soft: #4a1d24; --dot: #2c365a; --edge: #c9d2ea;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .25);
     color-scheme: dark;
   }
@@ -43,7 +44,7 @@
 :root[data-theme="dark"] {
   --paper: #0f1424; --sheet: #161d33; --sheet-2: #1b2340; --ink: #e3e8f5; --graphite: #98a2bc; --rule: #2a3356;
   --pen: #8fa8ff; --pen-soft: #23305e; --marker: #ffc23d; --marker-soft: #4a3b12; --eps: #b794f6; --eps-soft: #352a55;
-  --go: #3fc98e; --go-soft: #143a2b; --stop: #ff7a7a; --stop-soft: #4a1d24; --dot: #2c365a;
+  --go: #3fc98e; --go-soft: #143a2b; --stop: #ff7a7a; --stop-soft: #4a1d24; --dot: #2c365a; --edge: #c9d2ea;
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .25);
   color-scheme: dark;
 }
@@ -199,42 +200,42 @@ table.data td.wrap { white-space: normal; }
 .canvas .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; border: 1.5px solid var(--ink); }
 .canvas .empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--graphite); padding: 20px; }
 
-/* graph elements */
-.g-node circle.body { fill: var(--sheet); stroke: var(--ink); stroke-width: 1.7; transition: fill .2s, stroke .2s; }
-.g-node circle.ring { fill: none; stroke: var(--ink); stroke-width: 1.5; }
-.g-node text.name { font: 650 13px var(--font); fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
-.g-node text.sub { font: 400 10.5px var(--mono); fill: var(--graphite); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+/* graph elements — dark, thick lines and large bold labels so diagrams read from the back of a room */
+.g-node circle.body { fill: var(--sheet); stroke: var(--ink); stroke-width: 2.4; transition: fill .2s, stroke .2s; }
+.g-node circle.ring { fill: none; stroke: var(--ink); stroke-width: 2.2; }
+.g-node text.name { font: 700 15px var(--font); fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.g-node text.sub { font: 500 11.5px var(--mono); fill: var(--ink); opacity: .8; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
 .g-node { cursor: move; }
 .g-node.ghost { opacity: 0; pointer-events: none; }
-.g-node.dim { opacity: .28; }
-.g-node.dead circle.body { stroke-dasharray: 4 3; }
-.g-node.in-s circle.body { fill: var(--pen-soft); stroke: var(--pen); stroke-width: 2.5; }
-.g-node.moved circle.body, .g-node.active circle.body { fill: var(--marker-soft); stroke: var(--marker); stroke-width: 3; }
-.g-node.closure circle.body { fill: var(--eps-soft); stroke: var(--eps); stroke-width: 3; }
-.g-node.current circle.body { stroke: var(--pen); stroke-width: 3.5; }
-.g-node.fresh circle.body { fill: var(--marker-soft); stroke: var(--marker); stroke-width: 3.5; }
-.g-node.accept circle.body { fill: var(--go-soft); stroke: var(--go); stroke-width: 3; }
-.g-node.reject circle.body { fill: var(--stop-soft); stroke: var(--stop); stroke-width: 3; }
-.g-node.removed { opacity: .35; }
-.g-node.removed circle.body { stroke: var(--stop); stroke-dasharray: 3 3; }
+.g-node.dim { opacity: .55; }
+.g-node.dead circle.body { stroke-dasharray: 5 3; }
+.g-node.in-s circle.body { fill: var(--pen-soft); stroke: var(--pen); stroke-width: 3.5; }
+.g-node.moved circle.body, .g-node.active circle.body { fill: var(--marker-soft); stroke: var(--marker); stroke-width: 4; }
+.g-node.closure circle.body { fill: var(--eps-soft); stroke: var(--eps); stroke-width: 4; }
+.g-node.current circle.body { stroke: var(--pen); stroke-width: 4.5; }
+.g-node.fresh circle.body { fill: var(--marker-soft); stroke: var(--marker); stroke-width: 4.5; }
+.g-node.accept circle.body { fill: var(--go-soft); stroke: var(--go); stroke-width: 4; }
+.g-node.reject circle.body { fill: var(--stop-soft); stroke: var(--stop); stroke-width: 4; }
+.g-node.removed { opacity: .4; }
+.g-node.removed circle.body { stroke: var(--stop); stroke-dasharray: 4 3; }
 .g-node[data-class] circle.body { fill: var(--cls); }
 .g-node.pulse circle.body { animation: pulse .9s ease-out 1; }
-@keyframes pulse { 0% { stroke-width: 9; } 100% { stroke-width: 3.5; } }
+@keyframes pulse { 0% { stroke-width: 10; } 100% { stroke-width: 4.5; } }
 
-.g-edge path { fill: none; stroke: var(--graphite); stroke-width: 1.6; }
-.g-edge.eps path { stroke: var(--eps); stroke-dasharray: 6 4; }
+.g-edge path { fill: none; stroke: var(--edge); stroke-width: 2.2; }
+.g-edge.eps path { stroke: var(--eps); stroke-dasharray: 7 4; }
 .g-edge.ghost { opacity: 0; }
-.g-edge.dim { opacity: .2; }
-.g-edge.hot path { stroke: var(--marker); stroke-width: 3; stroke-dasharray: none; }
-.g-edge.hot-eps path { stroke: var(--eps); stroke-width: 3; }
-.g-edge.added path { stroke-dasharray: 2 4; }
-.g-label { font: 500 12.5px var(--mono); fill: var(--ink); text-anchor: middle; dominant-baseline: central; paint-order: stroke; stroke: var(--sheet); stroke-width: 5px; stroke-linejoin: round; pointer-events: none; }
+.g-edge.dim { opacity: .5; }
+.g-edge.hot path { stroke: var(--marker); stroke-width: 3.6; stroke-dasharray: none; }
+.g-edge.hot-eps path { stroke: var(--eps); stroke-width: 3.6; }
+.g-edge.added path { stroke-dasharray: 3 4; }
+.g-label { font: 700 14.5px var(--mono); fill: var(--ink); text-anchor: middle; dominant-baseline: central; paint-order: stroke; stroke: var(--sheet); stroke-width: 6px; stroke-linejoin: round; pointer-events: none; }
 .g-label.ghost { opacity: 0; }
-.g-label.dim { opacity: .25; }
+.g-label.dim { opacity: .55; }
 .g-label tspan.eps { fill: var(--eps); }
-.g-label tspan.hot { fill: var(--ink); font-weight: 700; text-decoration: underline; }
-.g-start { stroke: var(--ink); stroke-width: 1.8; fill: none; }
-.g-token { fill: var(--marker); stroke: var(--ink); stroke-width: 1.5; }
+.g-label tspan.hot { fill: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; }
+.g-start { stroke: var(--ink); stroke-width: 2.4; fill: none; }
+.g-token { fill: var(--marker); stroke: var(--ink); stroke-width: 1.8; }
 .g-token.eps { fill: var(--eps); }
 
 /* ------------------------------------------------------------------ transport (step player) */

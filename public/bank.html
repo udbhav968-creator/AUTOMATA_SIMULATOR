@@ -28,6 +28,11 @@
     <section class="panel" aria-label="Question editor">
       <div class="row between"><h2 style="margin:0" id="formTitle">New question</h2><button class="btn quiet sm" id="reset">Clear form</button></div>
 
+      <details class="panel" style="margin:12px 0;background:var(--sheet-2)" id="importBox">
+        <summary><b>Import ready-made questions</b> <span class="small muted">— type or paste them, or upload a PDF question paper</span></summary>
+        <div id="importHost" style="margin-top:12px"></div>
+      </details>
+
       <details class="panel" style="margin:12px 0;background:var(--sheet-2)" id="aiBox">
         <summary><b>Draft with Gemini</b> <span class="small muted">— you review it before saving</span></summary>
         <div class="row" style="margin-top:10px;align-items:end">
@@ -51,7 +56,7 @@
         </div>
         <label class="field">Question text<textarea id="text" rows="3" placeholder="Start with a Bloom action verb, e.g. “Construct an equivalent DFA for the NFA below.”"></textarea><span class="hint" id="verbHint"></span></label>
 
-        <div data-for="construct accept closure count"><h3 style="margin-top:4px">Automaton</h3><div id="autoEd"></div></div>
+        <div data-for="construct accept closure count classes"><h3 style="margin-top:4px">Automaton</h3><div id="autoEd"></div></div>
         <div data-for="design">
           <h3 style="margin-top:4px">Reference automaton <span class="small muted">(hidden from students; any equivalent answer is accepted)</span></h3>
           <div id="refEd"></div>
@@ -92,7 +97,9 @@
 <script src="assets/shell.js"></script>
 <script src="assets/graph.js"></script>
 <script src="assets/editor.js"></script>
+<script src="extract.js"></script>
 <script src="assets/bankstore.js"></script>
+<script src="assets/importer.js"></script>
 <script src="assets/chat.js"></script>
 <script src="js/bank.js"></script>
 </body>
