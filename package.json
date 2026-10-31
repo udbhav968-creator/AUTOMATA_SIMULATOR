@@ -1,0 +1,1 @@
+{"name":"nfa-dfa-studio","version":"1.0.0","description":"CSET302 NFA→DFA simulator: full-stack + AI tutor","scripts":{"start":"node server.js","test":"node test.js"},"engines":{"node":">=18"}}

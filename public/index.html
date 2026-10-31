@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NFA → DFA Studio</title>
+<style>
+:root{--bg:#f5f6fb;--card:#fff;--tx:#1b1f2a;--mut:#667085;--ac:#4f46e5;--ok:#16a34a;--bad:#dc2626;--bd:#dde1ea;--hl:#fde68a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1120;--card:#171b2e;--tx:#e8eaf3;--mut:#9aa3b8;--ac:#8b85ff;--ok:#4ade80;--bad:#f87171;--bd:#2b3150;--hl:#5b4b13}}
+:root[data-theme="dark"]{--bg:#0e1120;--card:#171b2e;--tx:#e8eaf3;--mut:#9aa3b8;--ac:#8b85ff;--ok:#4ade80;--bad:#f87171;--bd:#2b3150;--hl:#5b4b13}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1150px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0}h2{font-size:15px;margin:0 0 8px}
+.sub{color:var(--mut);margin:0 0 14px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:14px}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px;min-width:0}
+textarea,input,select{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px;font:13px ui-monospace,Menlo,Consolas,monospace}
+textarea{height:210px;resize:vertical}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 13px;font:600 13px system-ui;cursor:pointer}
+button.g{background:transparent;color:var(--ac);border:1px solid var(--ac)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.err{color:var(--bad);font-size:13px;min-height:18px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border-bottom:1px solid var(--bd);padding:5px 8px;text-align:left;white-space:nowrap}
+tr.cur td{background:var(--hl)}
+.pill{display:inline-block;padding:1px 9px;border-radius:99px;font-weight:700;font-size:12px}
+.y{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok)}.n{background:color-mix(in srgb,var(--bad) 20%,transparent);color:var(--bad)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.stat{background:var(--bg);border-radius:8px;padding:8px;text-align:center}.stat b{display:block;font-size:20px;color:var(--ac)}.stat span{font-size:11px;color:var(--mut)}
+.exp{background:var(--bg);border-left:3px solid var(--ac);padding:8px 10px;border-radius:6px;min-height:48px}
+svg{max-width:100%;height:auto;display:block}
+.nd{fill:var(--card);stroke:var(--tx);stroke-width:1.6}.nd.cur{stroke:var(--ac);stroke-width:3.5}.nd.nw{fill:var(--hl)}
+.ed{fill:none;stroke:var(--mut);stroke-width:1.6}.ed.cur{stroke:var(--ac);stroke-width:3}
+.lb{fill:var(--tx);font:12px ui-monospace,monospace;text-anchor:middle}.nm{font:700 13px system-ui;text-anchor:middle;dominant-baseline:central;fill:var(--tx)}
+.small{font-size:12px;color:var(--mut)}
+</style></head><body><main>
+<h1>NFA → DFA Studio</h1>
+<p class="sub">Subset construction with ε-closures, step-by-step replay, string tracing, equivalence validation and DFA minimization.</p>
+<div class="grid">
+<div>
+<div class="card"><h2>1 · Define your NFA</h2>
+<select id="ex"></select>
+<textarea id="src" spellcheck="false"></textarea>
+<div class="small">Lines: <code>start: q0</code> · <code>final: q2, q3</code> · <code>q0,a = q0,q1</code> · use <code>e</code> or <code>ε</code> for epsilon. <code>#</code> starts a comment.</div>
+<div class="row"><button id="go">Convert</button></div><div class="err" id="err"></div></div>
+<div class="card"><h2>3 · Test a string</h2>
+<input id="w" placeholder="e.g. abab (leave empty for ε)">
+<div class="row"><button id="run">Run on NFA and DFA</button></div>
+<div id="trace" class="scroll" style="margin-top:8px"></div></div>
+</div>
+<div>
+<div class="card"><h2>2 · Step-by-step subset construction</h2>
+<div class="row" style="margin:0 0 8px"><button class="g" id="pv">◀ Prev</button><button id="nx">Next ▶</button><button class="g" id="pl">▶ Play</button><button class="g" id="all">Show all</button>
+<input type="range" id="sl" min="0" max="0" value="0" style="flex:1;min-width:120px"></div>
+<div class="exp" id="exp"></div>
+<div class="scroll" style="margin-top:8px"><svg id="svg"></svg></div></div>
+<div class="card"><h2>Construction log</h2><div class="scroll" style="max-height:260px;overflow-y:auto" id="log"></div></div>
+<div class="card"><h2>Result &amp; validation</h2><div class="stats" id="stats"></div><div id="val" style="margin-top:10px"></div>
+<div class="scroll" id="dt" style="margin-top:10px"></div></div>
+</div></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fs=a=>a.length?"{"+a.join(",")+"}":"∅";
+const EX={
+"Ends with “ab” (classic)":"states: q0,q1,q2\nstart: q0\nfinal: q2\nq0,a = q0,q1\nq0,b = q0\nq1,b = q2",
+"ε-NFA: a*b*c*":"start: q0\nfinal: q2\nq0,a = q0\nq0,e = q1\nq1,b = q1\nq1,e = q2\nq2,c = q2",
+"3rd symbol from end is a (exponential blow-up)":"start: q0\nfinal: q3\nq0,a = q0,q1\nq0,b = q0\nq1,a = q2\nq1,b = q2\nq2,a = q3\nq2,b = q3",
+"Contains “aa” or “bb”":"start: s\nfinal: f\ns,a = s,x\ns,b = s,y\nx,a = f\ny,b = f\nf,a = f\nf,b = f"};
+let N,M,ORD={},cur=0,timer=null;
+const EPS=new Set(["e","ε","eps","epsilon","λ"]);
+function parse(t){const o={states:[],start:null,finals:[],d:{},alpha:[]},A=new Set();
+ for(const raw of t.split("\n")){const l=raw.split("#")[0].trim();if(!l)continue;let m;
+  if(m=l.match(/^states\s*:\s*(.*)$/i))o.states=m[1].split(/[,\s]+/).filter(Boolean);
+  else if(m=l.match(/^start\s*:\s*(\S+)/i))o.start=m[1];
+  else if(m=l.match(/^final\s*:\s*(.*)$/i))o.finals=m[1].split(/[,\s]+/).filter(Boolean);
+  else if(m=l.match(/^(\S+?)\s*,\s*(\S+?)\s*(?:=|->|→)\s*(.*)$/)){
+   const c=EPS.has(m[2])?"ε":m[2];if(c!=="ε")A.add(c);const k=m[1]+"|"+c;o.d[k]=o.d[k]||new Set();
+   m[3].split(/[,\s]+/).filter(x=>x&&x!=="∅"&&x!=="-").forEach(x=>o.d[k].add(x));
+  }else throw new Error("Cannot parse line: "+l)}
+ if(!o.start)throw new Error("Missing “start:” line.");
+ const S=new Set(o.states);S.add(o.start);o.finals.forEach(x=>S.add(x));
+ for(const k in o.d){S.add(k.split("|")[0]);o.d[k].forEach(x=>S.add(x))}
+ o.states=[...S];o.alpha=[...A].sort();if(!o.alpha.length)throw new Error("No input symbols found in transitions.");
+ o.states.forEach((s,i)=>ORD[s]=i);return o}
+const key=S=>[...S].sort((a,b)=>ORD[a]-ORD[b]);
+const clo=S=>{const r=new Set(S),st=[...S];while(st.length){const s=st.pop();for(const t of N.d[s+"|ε"]||[])if(!r.has(t)){r.add(t);st.push(t)}}return r};
+const mv=(S,c)=>{const r=new Set();for(const s of S)for(const t of N.d[s+"|"+c]||[])r.add(t);return r};
+function build(){const s0=key(clo([N.start])),k=a=>a.join(","),D=[{set:s0}],idx={[k(s0)]:0},steps=[{type:"init",closure:s0,to:0,isNew:true}],trans=[],disc=[0];
+ for(let i=0;i<D.length;i++)for(const c of N.alpha){
+  const m=key(mv(D[i].set,c)),t=key(clo(m)),kk=k(t);let nw=false;
+  if(!(kk in idx)){idx[kk]=D.length;D.push({set:t});disc[idx[kk]]=steps.length;nw=true;if(D.length>300)throw new Error("DFA exceeds 300 states — please use a smaller NFA.")}
+  trans.push({f:i,c,t:idx[kk],step:steps.length});steps.push({type:"move",from:i,c,move:m,closure:t,to:idx[kk],isNew:nw})}
+ D.forEach(d=>d.fin=d.set.some(s=>N.finals.includes(s)));
+ const tm={};trans.forEach(t=>tm[t.f+"|"+t.c]=t.t);return{D,trans,steps,disc,tm}}
+function minimize(){let p=M.D.map(d=>d.fin?1:0),n=new Set(p).size;
+ for(;;){const mp={},q=M.D.map((d,i)=>{const s=p[i]+"|"+N.alpha.map(c=>p[M.tm[i+"|"+c]]).join(",");return mp[s]=mp[s]??Object.keys(mp).length}),nn=Object.keys(mp).length;p=q;if(nn===n)break;n=nn}
+ return n}
+function tok(w){return N.alpha.every(a=>a.length===1)?[...w]:w.split(/[\s,]+/).filter(Boolean)}
+function runNFA(w){let S=key(clo([N.start]));const tr=[{sym:"start",set:S}];
+ for(const c of w){S=key(clo(mv(S,c)));tr.push({sym:c,set:S})}return{tr,acc:S.some(s=>N.finals.includes(s))}}
+function runDFA(w){let s=0;const p=[0];for(const c of w){if(!(s+"|"+c in M.tm))return{p,acc:false,bad:c};s=M.tm[s+"|"+c];p.push(s)}return{p,acc:M.D[s].fin}}
+function layout(){const lay={0:0},L=[0];for(let i=0;i<L.length;i++)for(const t of M.trans)if(t.f===L[i]&&!(t.t in lay)){lay[t.t]=lay[L[i]]+1;L.push(t.t)}
+ const cnt={};Object.values(lay).forEach(l=>cnt[l]=(cnt[l]||0)+1);const mx=Math.max(...Object.values(cnt)),seen={};
+ return M.D.map((_,i)=>{const l=lay[i];seen[l]=(seen[l]||0);const y=50+(mx-cnt[l])*38+seen[l]++*76;return{x:60+l*125,y}})}
+function draw(){const P=layout(),R=22,cs=M.steps[cur],W=Math.max(...P.map(p=>p.x))+70,H=Math.max(...P.map(p=>p.y))+60;
+ const vis=i=>M.disc[i]<=cur;let h=`<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--mut)"/></marker><marker id="ac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--ac)"/></marker></defs>`;
+ const g={};M.trans.filter(t=>t.step<=cur).forEach(t=>{const k=t.f+"|"+t.t;(g[k]=g[k]||{f:t.f,t:t.t,l:[],c:false}).l.push(t.c);if(t.step===cur)g[k].c=true});
+ for(const e of Object.values(g)){const a=P[e.f],b=P[e.t],cl=e.c?"ed cur":"ed",mk=e.c?"ac":"ar",lab=e.l.join(",");
+  if(e.f===e.t){h+=`<path class="${cl}" d="M${a.x-10},${a.y-R+3} C${a.x-34},${a.y-68} ${a.x+34},${a.y-68} ${a.x+10},${a.y-R-1}" marker-end="url(#${mk})"/><text class="lb" x="${a.x}" y="${a.y-58}">${esc(lab)}</text>`;continue}
+  const dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy),ux=dx/L,uy=dy/L,rev=g[e.t+"|"+e.f]!==undefined,o=rev?32:0,cx=(a.x+b.x)/2-uy*o,cy=(a.y+b.y)/2+ux*o;
+  const sx=a.x+ux*R,sy=a.y+uy*R,ex=b.x-ux*(R+3),ey=b.y-uy*(R+3),lx=.25*sx+.5*cx+.25*ex,ly=.25*sy+.5*cy+.25*ey;
+  h+=`<path class="${cl}" d="M${sx},${sy} Q${cx},${cy} ${ex},${ey}" marker-end="url(#${mk})"/><text class="lb" x="${lx}" y="${ly-5}">${esc(lab)}</text>`}
+ M.D.forEach((d,i)=>{if(!vis(i))return;const p=P[i],c=(cs.from===i?" cur":"")+(cs.to===i&&cs.isNew?" nw":"");
+  h+=`<g><title>D${i} = ${esc(fs(d.set))}</title>${d.fin?`<circle class="nd" cx="${p.x}" cy="${p.y}" r="${R+5}"/>`:""}<circle class="nd${c}" cx="${p.x}" cy="${p.y}" r="${R}"/><text class="nm" x="${p.x}" y="${p.y}">${d.set.length?"D"+i:"∅"}</text></g>`});
+ h+=`<path class="ed" d="M8,${P[0].y} L${P[0].x-R-(M.D[0].fin?5:0)-3},${P[0].y}" marker-end="url(#ar)"/>`;
+ const s=$("svg");s.setAttribute("viewBox",`0 0 ${W} ${H}`);s.setAttribute("width",W);s.innerHTML=h;
+ $("sl").value=cur;$("exp").innerHTML=explain(cs);
+ let r="<table><tr><th>#</th><th>From</th><th>Symbol</th><th>move(S, a)</th><th>ε-closure</th><th>Result</th></tr>";
+ M.steps.slice(0,cur+1).forEach((t,i)=>{r+=`<tr class="${i===cur?"cur":""}"><td>${i}</td>`+(t.type==="init"?`<td>ε-closure(${esc(N.start)})</td><td>—</td><td>—</td><td>${esc(fs(t.closure))}</td>`:`<td>D${t.from} ${esc(fs(M.D[t.from].set))}</td><td>${esc(t.c)}</td><td>${esc(fs(t.move))}</td><td>${esc(fs(t.closure))}</td>`)+`<td>D${t.to}${t.isNew?" ★new":""}</td></tr>`});
+ $("log").innerHTML=r+"</table>";$("log").scrollTop=1e6}
+function explain(s){if(s.type==="init")return`<b>Initialise.</b> The DFA start state is the ε-closure of the NFA start state ${esc(N.start)} = <b>${esc(fs(s.closure))}</b>. Call it D0${M.D[0].fin?" (accepting — it contains a final NFA state)":""}.`;
+ let t=`<b>D${s.from}</b> = ${esc(fs(M.D[s.from].set))}. On “${esc(s.c)}” the NFA can reach <b>${esc(fs(s.move))}</b>`;
+ t+=s.move.length?`. Following ε-moves gives <b>${esc(fs(s.closure))}</b>${s.closure.length===s.move.length?" (no extra ε-states)":""}.`:`, so the result is ∅ — a dead (trap) state.`;
+ t+=s.isNew?` This subset is new → <b>D${s.to}</b>${M.D[s.to].fin?", marked accepting because it contains a final NFA state":""}.`:` Already discovered as <b>D${s.to}</b>, so only an edge is added.`;
+ if(cur===M.steps.length-1)t+=`<br><b>Done.</b> No undiscovered subsets remain: ${M.D.length} DFA states.`;return t}
+function stats(){const mn=minimize(),eps=Object.keys(N.d).some(k=>k.endsWith("|ε"));
+ const S=[[N.states.length,"NFA states"],[M.D.length,"DFA states"],[mn,"Minimal DFA states"],[M.D.filter(d=>d.fin).length,"Accepting DFA states"],[N.alpha.length,"Symbols"],[eps?"yes":"no","ε-moves"],["2^"+N.states.length,"Worst-case bound"]];
+ $("stats").innerHTML=S.map(x=>`<div class="stat"><b>${x[0]}</b><span>${x[1]}</span></div>`).join("");
+ let t="<table><tr><th>DFA state</th><th>NFA subset</th>"+N.alpha.map(a=>`<th>${esc(a)}</th>`).join("")+"</tr>";
+ M.D.forEach((d,i)=>t+=`<tr><td>${i===0?"→":""}${d.fin?"*":""}D${i}</td><td>${esc(fs(d.set))}</td>`+N.alpha.map(a=>`<td>D${M.tm[i+"|"+a]}</td>`).join("")+"</tr>");
+ $("dt").innerHTML=t+"</table><div class=\"small\">→ start, * accepting. Table is the complete transition function δ of the DFA.</div>";
+ let L=0,tot=1,n=1;while(L<12&&tot+Math.pow(N.alpha.length,L+1)<=6000){L++;tot+=Math.pow(N.alpha.length,L)}
+ let words=[[]];let bad=0,cnt=0,ex=null;
+ for(let i=0;i<words.length;i++){const w=words[i];cnt++;const a=runNFA(w).acc,b=runDFA(w).acc;if(a!==b){bad++;ex=ex||w}
+  if(w.length<L)N.alpha.forEach(c=>words.push([...w,c]))}
+ $("val").innerHTML=bad?`<span class="pill n">✗ ${bad} mismatches</span> e.g. “${esc(ex.join(""))}”`:`<span class="pill y">✓ Verified</span> NFA and DFA agree on all ${cnt} strings up to length ${L}.`}
+function trace(){if(!N)return;const w=tok($("w").value.trim()),bad=w.filter(c=>!N.alpha.includes(c));
+ const a=runNFA(w),b=runDFA(w);let h=bad.length?`<div class="err">Symbol(s) not in the alphabet: ${esc(bad.join(","))} — both machines reject.</div>`:"";
+ h+="<table><tr><th>Read</th><th>NFA active states</th><th>DFA state</th></tr>"+a.tr.map((t,i)=>`<tr><td>${i?esc(t.sym):"(start)"}</td><td>${esc(fs(t.set))}</td><td>${b.p[i]!==undefined?"D"+b.p[i]:"✗"}</td></tr>`).join("")+"</table>";
+ h+=`<div style="margin-top:8px">NFA: <span class="pill ${a.acc?"y":"n"}">${a.acc?"ACCEPT":"REJECT"}</span> · DFA: <span class="pill ${b.acc?"y":"n"}">${b.acc?"ACCEPT":"REJECT"}</span> · ${a.acc===b.acc?"✓ results match":"✗ mismatch"}</div>`;$("trace").innerHTML=h}
+function go(){clearInterval(timer);try{ORD={};N=parse($("src").value);M=build();$("err").textContent=""}catch(e){$("err").textContent=e.message;return}
+ cur=0;$("sl").max=M.steps.length-1;draw();stats();trace()}
+const st=n=>{cur=Math.max(0,Math.min(M.steps.length-1,n));draw()};
+$("ex").innerHTML=Object.keys(EX).map(k=>`<option>${esc(k)}</option>`).join("");
+$("ex").onchange=()=>{$("src").value=EX[$("ex").value];go()};
+$("go").onclick=go;$("run").onclick=trace;$("w").onkeydown=e=>{if(e.key==="Enter")trace()};
+$("nx").onclick=()=>st(cur+1);$("pv").onclick=()=>st(cur-1);$("all").onclick=()=>st(M.steps.length-1);$("sl").oninput=e=>st(+e.target.value);
+$("pl").onclick=()=>{clearInterval(timer);if(cur>=M.steps.length-1)cur=0;timer=setInterval(()=>{if(cur>=M.steps.length-1)return clearInterval(timer);st(cur+1)},900)};
+$("src").value=EX[Object.keys(EX)[0]];$("w").value="aab";go();
+</script><script src="lab.js"></script></body></html>
