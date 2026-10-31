@@ -26,3 +26,16 @@ Optional AI tutor: copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY`. Wi
 | `GET /api/health` | AI on/offline |
 
 NFA format: `states:`, `start:`, `final:`, then `q0,a = q0,q1`; use `ε` or `e` for epsilon.
+
+## Pages (start the server, then open)
+| Page | Purpose |
+|---|---|
+| `/` Simulator | step-by-step subset construction, diagram, string tracer, Question Lab, AI tutor, share link, JSON import/export |
+| `/theory.html` | M1 evidence: problem definition, pseudocode, complexity, architecture, edge-case list |
+| `/explorer.html` | language properties (empty / universal / finite / shortest strings) and A ≡ B equivalence |
+| `/tests.html` | 20 automated edge-case tests, expected vs actual |
+| `/report.html` | auto-generated technical report from your last NFA (Print → PDF) |
+
+## Input flexibility and limits
+Accepted: `q0,a = q1,q2` · `δ(q0,a) = {q1}` · `q0 -a-> q1` · `alphabet: a,b,c` · multi-character symbols · `//` and `#` comments.
+Limits: NFA ≤ 16 states, DFA ≤ 300 states, one start state, ε cannot be an input symbol; undeclared states are rejected when `states:` is given.

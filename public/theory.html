@@ -1,0 +1,31 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="shared.css"><title>Theory · NFA→DFA Studio</title></head><body><main>
+<h1>Theory &amp; Design (M1 evidence)</h1><p class="sub">Problem definition, formal model, algorithm, complexity and design. Everything on this page is rendered from the same engine the simulator uses.</p>
+<div class="card"><h2>1 · Problem definition</h2><p><b>Input:</b> an ε-NFA N = (Q, Σ, δ, q₀, F). <b>Output:</b> an equivalent DFA D with L(D) = L(N), plus every intermediate step. <b>Objective:</b> make subset construction visible, verifiable and testable.</p>
+<p>δ : Q × (Σ ∪ {ε}) → 𝒫(Q). The DFA states are subsets of Q; its start state is ε-closure({q₀}); a subset is accepting iff it contains a state of F.</p></div>
+<div class="card"><h2>2 · Algorithm (pseudocode)</h2><pre>ε-closure(S): stack ← S; result ← S
+  while stack not empty: pop q; for p in δ(q, ε): if p ∉ result: add p; push p
+  return result
+
+SubsetConstruction(N):
+  D0 ← ε-closure({q0}); Dstates ← [D0]; queue ← [D0]
+  while queue not empty:
+    S ← dequeue
+    for each a in Σ:
+      T ← ε-closure( ∪ δ(q, a) for q in S )     // T may be ∅ → dead state
+      if T ∉ Dstates: add T, enqueue T
+      δD(S, a) ← T
+  F_D ← { S in Dstates : S ∩ F ≠ ∅ }</pre>
+<p><b>Complexity:</b> at most 2<sup>n</sup> DFA states, each with |Σ| transitions → O(2<sup>n</sup> · |Σ| · n²) worst case. The simulator therefore limits the NFA to 16 states and the DFA to 300 states, and says so clearly.</p>
+<p><b>Correctness idea:</b> by induction on |w|, after reading w the DFA is in exactly the set of NFA states reachable on w. The Test Suite checks this exhaustively on all short strings.</p></div>
+<div class="card"><h2>3 · Architecture</h2><pre>Browser UI (index, explorer, tests, report) ──► lib/automata.js (parse · closure · build · minimize · equivalence)
+      │                                                ▲
+      └── REST /api/* ──► server.js ───────────────────┘
+                          ├─ /api/check    language-equivalence grader for student DFAs
+                          ├─ /api/generate random question generator
+                          └─ /api/chat     AI tutor (Anthropic API key stays server-side)</pre></div>
+<div class="card"><h2>4 · Constraints &amp; edge cases handled</h2><div id="ec" class="scroll"></div></div>
+<div class="card"><h2>5 · Existing-tool review (write your own)</h2><p>M1 asks for <i>your</i> review of existing simulators (for example JFLAP or Automata Tutor): list what each does, its limits, and how this project differs. Use this project's features as your comparison column: step-by-step ε-closure log, live equivalence validation, shortest counter-example grading, language properties, AI question generation.</p></div>
+</main><script src="nav.js"></script><script src="automata.js"></script><script src="cases.js"></script><script>
+const by={};CASES.forEach(c=>(by[c[1]]=by[c[1]]||[]).push(c[0]));
+document.getElementById("ec").innerHTML="<table><tr><th>Category</th><th>Cases covered</th></tr>"+Object.entries(by).map(([k,v])=>"<tr><td><b>"+k+"</b></td><td style='white-space:normal'>"+v.join(" · ")+"</td></tr>").join("")+"</table>";
+</script></body></html>

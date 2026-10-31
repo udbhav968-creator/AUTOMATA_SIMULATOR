@@ -47,8 +47,8 @@ http.createServer(async (req, res) => {
     }
     if (p === "/api/chat" && req.method === "POST") return send(res, 200, await chat(await body(req)));
     if (p.startsWith("/api/")) return send(res, 404, { error: "Unknown endpoint" });
-    const f = path.join(PUB, p === "/" ? "index.html" : p);
-    if (!f.startsWith(PUB) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end("Not found"); }
+    const lib = p === "/automata.js", f = lib ? path.join(__dirname, "lib", "automata.js") : path.join(PUB, p === "/" ? "index.html" : p);
+    if ((!lib && !f.startsWith(PUB)) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end("Not found"); }
     res.writeHead(200, { "content-type": MIME[path.extname(f)] || "application/octet-stream" }); fs.createReadStream(f).pipe(res);
   } catch (e) { send(res, 400, { error: e.message }); }
 }).listen(PORT, () => console.log(`NFA→DFA Studio on http://localhost:${PORT}  (AI tutor: ${KEY ? "ON" : "offline mode"})`));

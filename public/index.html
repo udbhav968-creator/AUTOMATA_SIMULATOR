@@ -60,6 +60,7 @@ svg{max-width:100%;height:auto;display:block}
 <div class="scroll" id="dt" style="margin-top:10px"></div></div>
 </div></div>
 </main>
+<script src="automata.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -143,7 +144,7 @@ function trace(){if(!N)return;const w=tok($("w").value.trim()),bad=w.filter(c=>!
  const a=runNFA(w),b=runDFA(w);let h=bad.length?`<div class="err">Symbol(s) not in the alphabet: ${esc(bad.join(","))} — both machines reject.</div>`:"";
  h+="<table><tr><th>Read</th><th>NFA active states</th><th>DFA state</th></tr>"+a.tr.map((t,i)=>`<tr><td>${i?esc(t.sym):"(start)"}</td><td>${esc(fs(t.set))}</td><td>${b.p[i]!==undefined?"D"+b.p[i]:"✗"}</td></tr>`).join("")+"</table>";
  h+=`<div style="margin-top:8px">NFA: <span class="pill ${a.acc?"y":"n"}">${a.acc?"ACCEPT":"REJECT"}</span> · DFA: <span class="pill ${b.acc?"y":"n"}">${b.acc?"ACCEPT":"REJECT"}</span> · ${a.acc===b.acc?"✓ results match":"✗ mismatch"}</div>`;$("trace").innerHTML=h}
-function go(){clearInterval(timer);try{ORD={};N=parse($("src").value);M=build();$("err").textContent=""}catch(e){$("err").textContent=e.message;return}
+function go(){clearInterval(timer);try{N=Automata.parse($("src").value);ORD=N.ord;M=build();$("err").style.color="#b45309";$("err").innerHTML=N.warn.map(w=>"⚠ "+esc(w)).join("<br>")}catch(e){$("err").style.color="";$("err").textContent=e.message;return}
  cur=0;$("sl").max=M.steps.length-1;draw();stats();trace()}
 const st=n=>{cur=Math.max(0,Math.min(M.steps.length-1,n));draw()};
 $("ex").innerHTML=Object.keys(EX).map(k=>`<option>${esc(k)}</option>`).join("");
@@ -152,4 +153,4 @@ $("go").onclick=go;$("run").onclick=trace;$("w").onkeydown=e=>{if(e.key==="Enter
 $("nx").onclick=()=>st(cur+1);$("pv").onclick=()=>st(cur-1);$("all").onclick=()=>st(M.steps.length-1);$("sl").oninput=e=>st(+e.target.value);
 $("pl").onclick=()=>{clearInterval(timer);if(cur>=M.steps.length-1)cur=0;timer=setInterval(()=>{if(cur>=M.steps.length-1)return clearInterval(timer);st(cur+1)},900)};
 $("src").value=EX[Object.keys(EX)[0]];$("w").value="aab";go();
-</script><script src="lab.js"></script></body></html>
+</script><script src="nav.js"></script><script src="lab.js"></script><script src="extras.js"></script></body></html>

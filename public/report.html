@@ -1,0 +1,17 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="shared.css"><title>Report · NFA→DFA Studio</title></head><body><main>
+<h1>Project Report Generator</h1><p class="sub noprint">Builds the technical report from the NFA you last converted in the Simulator. Fill in the fields, then press Print → Save as PDF.</p>
+<div class="card noprint"><div class="grid"><input id="g" placeholder="Group / batch"><input id="m" placeholder="Members and roll numbers"></div><div class="row"><button onclick="print()">🖨 Print / Save as PDF</button></div></div>
+<div id="r"></div></main><script src="nav.js"></script><script src="automata.js"></script><script src="cases.js"></script><script>
+const E=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])),f=a=>"{"+a.join(", ")+"}";
+let src="start: q0\nfinal: q2\nq0,a = q0,q1\nq0,b = q0\nq1,b = q2",q="";try{src=localStorage.getItem("nfa.src")||src;q=localStorage.getItem("nfa.q")||""}catch{}
+function draw(){const N=Automata.parse(src),M=Automata.build(N),P=Automata.properties(N),all=[...N.alpha,"ε"];
+let n=0,bad=0,qq=[[]];for(let i=0;i<qq.length&&n<4000;i++){n++;if(Automata.runNFA(N,qq[i])!==Automata.runDFA(N,M,qq[i]))bad++;if(qq[i].length<6)N.alpha.forEach(c=>qq.push([...qq[i],c]))}
+const pass=CASES.filter(c=>runCase(Automata,c).pass).length,T=(h,rows)=>"<table><tr>"+h.map(x=>"<th>"+E(x)+"</th>").join("")+"</tr>"+rows.map(r=>"<tr>"+r.map(x=>"<td>"+E(x)+"</td>").join("")+"</tr>").join("")+"</table>";
+document.getElementById("r").innerHTML=`<div class="card"><h2>1. Problem definition</h2><p>${E(q||"Convert the given NFA to an equivalent DFA using subset construction.")}</p><p>Group: <b>${E(document.getElementById("g").value||"—")}</b> · Members: <b>${E(document.getElementById("m").value||"—")}</b></p></div>
+<div class="card"><h2>2. Formal specification</h2><p>Q = ${f(N.states)}<br>Σ = ${f(N.alpha)}<br>q₀ = ${E(N.start)}<br>F = ${f(N.finals)}</p>${T(["State",...all],N.states.map(s=>[(s===N.start?"→":"")+(N.finals.includes(s)?"*":"")+s,...all.map(c=>f([...(N.d[s+"|"+c]||[])]))]))}</div>
+<div class="card"><h2>3. Subset construction log</h2>${T(["#","From","Symbol","move","ε-closure","Result"],M.steps.map((s,i)=>s.type==="init"?[i,"ε-closure("+N.start+")","—","—",f(s.closure),"D0 new"]:[i,"D"+s.from+" "+f(M.D[s.from].set),s.c,f(s.move),f(s.closure),"D"+s.to+(s.isNew?" new":"")]))}</div>
+<div class="card"><h2>4. Resulting DFA</h2>${T(["State","Subset",...N.alpha],M.D.map((d,i)=>[(i?"":"→")+(d.fin?"*":"")+"D"+i,f(d.set),...N.alpha.map(c=>"D"+M.tm[i+"|"+c])]))}</div>
+<div class="card"><h2>5. Results &amp; validation</h2><ul><li>NFA states: ${N.states.length} · DFA states: ${M.D.length} (theoretical maximum 2<sup>${N.states.length}</sup> = ${Math.pow(2,N.states.length)}) · minimal DFA: ${P.minimal}</li><li>Language: ${P.empty?"empty":P.finite?"finite":"infinite"}; shortest accepted string: ${E(P.words[0]??"none")}</li><li>Equivalence check: NFA and DFA compared on ${n} strings → ${bad} mismatches</li><li>Automated edge-case suite: ${pass} / ${CASES.length} passed (see Test Suite page)</li>${N.warn.map(w=>"<li>⚠ "+E(w)+"</li>").join("")}</ul></div>
+<div class="card"><h2>6. Limitations</h2><p>NFA limited to 16 states and DFA to 300 states (exponential growth). Input is textual; symbols are case-sensitive; ε may be written ε or e.</p></div>`}
+["g","m"].forEach(i=>document.getElementById(i).oninput=draw);draw();
+</script></body></html>

@@ -1,0 +1,9 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="shared.css"><title>Test Suite · NFA→DFA Studio</title></head><body><main>
+<h1>Automated Test Suite</h1><p class="sub">Expected vs actual results for normal, ε, edge, flexible-syntax, stress and constraint cases. Every case also checks NFA ≡ DFA on all strings up to length 5.</p>
+<div class="card"><div class="row" style="margin:0"><button id="rr">Run all tests</button><span id="sum"></span></div><div class="scroll" style="margin-top:10px"><table id="t"></table></div></div>
+</main><script src="nav.js"></script><script src="automata.js"></script><script src="cases.js"></script><script>
+function go(){let p=0;const rows=CASES.map(c=>{const r=runCase(Automata,c);if(r.pass)p++;return "<tr><td>"+(r.pass?'<span class="pill y">PASS</span>':'<span class="pill n">FAIL</span>')+"</td><td><b>"+r.name+"</b><div class='small'>"+r.cat+"</div></td><td style='white-space:normal'>"+r.exp.join("<br>")+"</td><td style='white-space:normal'>"+r.act.join("<br>")+"</td></tr>"}).join("");
+document.getElementById("t").innerHTML="<tr><th>Result</th><th>Case</th><th>Expected</th><th>Actual</th></tr>"+rows.replace(/<(?!\/?(tr|td|th|b|br|div|span)\b)/g,"&lt;");
+document.getElementById("sum").innerHTML='<span class="pill '+(p===CASES.length?"y":"n")+'">'+p+" / "+CASES.length+" passed</span>"}
+document.getElementById("rr").onclick=go;go();
+</script></body></html>
