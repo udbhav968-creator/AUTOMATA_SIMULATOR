@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>String run · Automata Studio</title>
+<meta name="description" content="Animate an NFA or DFA reading a string.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<main class="page" id="main">
+  <header class="page-head">
+    <div>
+      <h1>String run</h1>
+      <p>Feed a string to an NFA and watch every active state at once: symbol moves in amber, ε-moves in violet, and the equivalent DFA or the full computation tree beside it.</p>
+    </div>
+    <div class="actions"><button class="btn" id="toggleInput" aria-expanded="true">Hide input</button></div>
+  </header>
+
+  <div class="workspace two" id="ws">
+    <aside class="input-col sticky-col" aria-label="Input">
+      <div class="panel">
+        <h2>Machine</h2>
+        <div id="input"></div>
+      </div>
+      <div class="panel">
+        <h2>Input string</h2>
+        <div class="row">
+          <input id="w" class="code" placeholder="e.g. aabab" autocomplete="off" spellcheck="false" style="flex:1;min-width:140px" maxlength="400" aria-describedby="wHint">
+          <button class="btn primary" id="go">Run</button>
+        </div>
+        <div class="row" id="symbols" style="margin-top:8px" aria-label="Type a symbol"></div>
+        <p class="hint" id="wHint" style="margin:8px 0 0">Leave empty to test ε. With multi-character symbols, separate them by spaces. Up to 200 symbols.</p>
+      </div>
+      <div class="panel">
+        <h2>Test many strings</h2>
+        <textarea id="batch" class="code" rows="5" placeholder="one string per line&#10;ab&#10;aab&#10;ε"></textarea>
+        <div class="row" style="margin-top:8px"><button class="btn" id="runBatch">Test all</button><button class="btn quiet sm" id="fillBatch">Use the 12 shortest strings</button></div>
+        <div id="batchOut" style="margin-top:10px"></div>
+      </div>
+    </aside>
+
+    <section aria-label="Simulation" style="min-width:0">
+      <div class="tape" id="tape" aria-label="Input tape"></div>
+      <div class="row between" style="margin-bottom:10px">
+        <div class="seg" role="group" aria-label="View">
+          <button type="button" data-view="nfa" aria-pressed="true">Active states</button>
+          <button type="button" data-view="tree" aria-pressed="false">Computation tree</button>
+          <button type="button" data-view="dfa" aria-pressed="false">Equivalent DFA</button>
+        </div>
+        <div id="verdict" class="verdict wait" style="padding:7px 12px" aria-live="polite">Waiting</div>
+      </div>
+      <div id="nfaCanvas" style="height:min(60vh,520px)"></div>
+      <div id="treeCanvas" style="height:min(60vh,520px)" hidden></div>
+      <div id="dfaCanvas" style="height:min(60vh,520px)" hidden></div>
+      <div id="transport"></div>
+      <div class="under">
+        <div class="panel" aria-live="polite"><div class="narrative" id="narrative"><p class="muted">Run a string to begin.</p></div></div>
+        <div class="panel"><h2>Trace</h2><div class="table-wrap" id="trace" style="max-height:340px"></div></div>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="automata.js"></script>
+<script src="qgen.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/graph.js"></script>
+<script src="assets/player.js"></script>
+<script src="assets/editor.js"></script>
+<script src="assets/chat.js"></script>
+<script src="js/run.js"></script>
+</body>
+</html>

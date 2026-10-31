@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Language tools · Automata Studio</title>
+<meta name="description" content="Language properties and equivalence of automata.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<main class="page" id="main">
+  <header class="page-head"><div><h1>Language tools</h1><p>Analyse the language of an automaton, or check whether two automata (or a regular expression and an automaton) accept the same language. When they differ you get the shortest string that tells them apart.</p></div></header>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+    <section class="panel"><h2>Automaton A</h2><div id="edA"></div><div id="outA" style="margin-top:12px"></div></section>
+    <section class="panel"><h2>Automaton B</h2><div id="edB"></div><div id="outB" style="margin-top:12px"></div></section>
+  </div>
+  <section class="panel" style="margin-top:14px"><div class="row"><button class="btn primary" id="eq">Is L(A) = L(B)?</button></div><div id="outEq" style="margin-top:12px"></div></section>
+</main>
+<script src="automata.js"></script>
+<script src="qgen.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/graph.js"></script>
+<script src="assets/editor.js"></script>
+<script src="assets/chat.js"></script>
+<script>
+(function () {
+  const { $, esc } = Studio, A = Automata;
+  const yes = v => `<span class="pill ${v ? "yes" : "no"}">${v ? "yes" : "no"}</span>`;
+  function analyse(N, out) {
+    try {
+      const p = A.properties(N);
+      $(out).innerHTML = `<div class="table-wrap"><table class="data"><tbody>
+        <tr><td>Language is empty</td><td>${yes(p.empty)}</td></tr><tr><td>Accepts every string (Σ*)</td><td>${yes(p.universal)}</td></tr>
+        <tr><td>Language is finite</td><td>${yes(p.finite)}</td></tr><tr><td>DFA states / minimal</td><td>${p.dfaStates} / ${p.minimal}</td></tr>
+        <tr><td>Shortest accepted strings</td><td class="wrap mono">${esc(p.words.join(", ") || "none")}</td></tr></tbody></table></div>`;
+    } catch (e) { $(out).innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  }
+  const eA = new AutomatonInput($("#edA"), { kind: "nfa", storageKey: "tools.a", runLabel: "Analyse A", onRun: (s, N) => analyse(N, "#outA"), rows: 8 });
+  const eB = new AutomatonInput($("#edB"), { kind: "nfa", storageKey: "tools.b", runLabel: "Analyse B", onRun: (s, N) => analyse(N, "#outB"), rows: 8 });
+  if (!Studio.store.get("tools.b", null)) eB.setText("# DFA for strings ending in ab\nstart: A\nfinal: C\nA,a = B\nA,b = A\nB,a = B\nB,b = C\nC,a = B\nC,b = A");
+  $("#eq").addEventListener("click", () => {
+    let N1, N2;
+    try { N1 = A.parse(eA.getText()); } catch (e) { $("#outEq").innerHTML = `<div class="msg err">A: ${esc(e.message)}</div>`; return; }
+    try { N2 = A.parse(eB.getText()); } catch (e) { $("#outEq").innerHTML = `<div class="msg err">B: ${esc(e.message)}</div>`; return; }
+    try {
+      const r = A.equivalent(N1, N2), sep = N1.alpha.concat(N2.alpha).every(a => a.length === 1) ? "" : " ";
+      $("#outEq").innerHTML = r.ok ? '<div class="msg ok">✓ Equivalent: A and B accept exactly the same strings (every reachable pair of states was compared).</div>'
+        : `<div class="msg err">✗ Different. The shortest string that tells them apart is <b class="mono">“${esc(r.counter.join(sep) || "ε")}”</b>, accepted by ${r.firstAccepts ? "A" : "B"} only.</div>`;
+    } catch (e) { $("#outEq").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  });
+  eA.run(); eB.run();
+  Studio.context = () => ({ page: "Language tools", automaton: "A:\n" + eA.getText() + "\n\nB:\n" + eB.getText() });
+})();
+</script>
+</body>
+</html>

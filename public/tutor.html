@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI tutor · Automata Studio</title>
+<meta name="description" content="Gemini-powered automata tutor with an offline fallback.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body data-no-fab>
+<main class="page" id="main">
+  <header class="page-head">
+    <div>
+      <h1>AI tutor</h1>
+      <p>Ask anything about automata. The tutor sees the automaton on the right, writes practice questions on request, and gives hints before answers. Every automaton it writes is checked by the engine before you can use it.</p>
+    </div>
+  </header>
+  <div class="workspace two" style="grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr)">
+    <section id="chatHost" aria-label="Conversation"></section>
+    <aside class="stack">
+      <div class="panel">
+        <h2>Automaton the tutor can see</h2>
+        <textarea id="ctxSrc" class="code" rows="9" spellcheck="false"></textarea>
+        <div id="ctxStatus" class="small" style="margin-top:6px"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn sm" data-open="subset.html">Convert it</button>
+          <button class="btn sm" data-open="run.html">Run strings</button>
+          <button class="btn sm" data-open="minimize.html">Minimise it</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Ask it to</h2>
+        <div class="stack small" id="ideas"></div>
+      </div>
+      <div class="panel" id="setup">
+        <h2>Tutor status</h2>
+        <div class="status" data-ai><i></i><span>Checking…</span></div>
+        <div id="setupHelp" class="small" style="margin-top:8px"></div>
+      </div>
+    </aside>
+  </div>
+</main>
+<script src="automata.js"></script>
+<script src="qgen.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/chat.js"></script>
+<script>
+(function () {
+  "use strict";
+  const { $, esc } = Studio;
+  const chat = new TutorChat($("#chatHost"), { inline: true });
+  window.Tutor = { open: t => chat.open(t), ask: t => chat.send(t) };
+  const last = Studio.lastAutomaton.get();
+  $("#ctxSrc").value = last ? last.src : "";
+  if (!$("#ctxSrc").value) $("#ctxSrc").value = "start: q0\nfinal: q2\nq0,a = q0,q1\nq0,b = q0\nq1,b = q2";
+  const check = () => {
+    try { const N = Automata.parse($("#ctxSrc").value); $("#ctxStatus").innerHTML = `<span class="ok">Readable: ${N.states.length} states, alphabet {${esc(N.alpha.join(","))}}.</span>`; }
+    catch (e) { $("#ctxStatus").innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
+  };
+  $("#ctxSrc").addEventListener("input", Studio.debounce(check, 250)); check();
+  document.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => Studio.handoff(b.dataset.open, { src: $("#ctxSrc").value })));
+  const ideas = ["Explain ε-closure with this automaton", "Convert this to a DFA and explain each subset", "Make a hard ε-NFA question at the Create level", "Make three questions, one each at Apply, Analyze and Evaluate", "Does it accept abba? Show the active states", "Minimise it and tell me which states merge", "Give me a string it rejects and explain why", "Quiz me on table filling, one question at a time"];
+  $("#ideas").innerHTML = ideas.map(i => `<button class="btn sm" style="justify-content:flex-start;white-space:normal;text-align:left" data-idea="${esc(i)}">${esc(i)}</button>`).join("");
+  $("#ideas").addEventListener("click", e => { const b = e.target.closest("[data-idea]"); if (b) chat.send(b.dataset.idea); });
+  Studio.context = () => ({ page: "Tutor page", automaton: $("#ctxSrc").value });
+  Studio.health().then(h => {
+    $("#setupHelp").innerHTML = h.down
+      ? "The server is not running, so the built-in tutor answers from the simulator's engine. Start the server with <code>node server.js</code> to use Gemini."
+      : h.ai ? `Gemini answers using <code>${esc(h.model)}</code>, falling back to ${h.models.slice(1).map(m => "<code>" + esc(m) + "</code>").join(" then ")} if needed. If Gemini is busy or unreachable, the built-in tutor takes over automatically.`
+      : "No Gemini key is set, so the built-in tutor answers from the engine. To enable Gemini, copy <code>.env.example</code> to <code>.env</code>, add <code>GEMINI_API_KEY=…</code> (free key from Google AI Studio) and restart the server.";
+  });
+})();
+</script>
+</body>
+</html>

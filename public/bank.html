@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Question bank · Automata Studio</title>
+<meta name="description" content="Write, save and share your own automata questions.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<main class="page" id="main">
+  <header class="page-head">
+    <div>
+      <h1>Question bank</h1>
+      <p>Write your own questions, or have Gemini draft one for you to review. The answer key is always worked out by the engine from the automaton, so it cannot be mistyped. Saved questions appear in Practice and in timed exams.</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="export">Export JSON</button>
+      <label class="btn" for="importFile">Import JSON</label><input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+  </header>
+
+  <div class="workspace two" style="grid-template-columns:minmax(0,1.25fr) minmax(300px,1fr)">
+    <section class="panel" aria-label="Question editor">
+      <div class="row between"><h2 style="margin:0" id="formTitle">New question</h2><button class="btn quiet sm" id="reset">Clear form</button></div>
+
+      <details class="panel" style="margin:12px 0;background:var(--sheet-2)" id="aiBox">
+        <summary><b>Draft with Gemini</b> <span class="small muted">— you review it before saving</span></summary>
+        <div class="row" style="margin-top:10px;align-items:end">
+          <label class="field" style="width:170px">Difficulty<select id="aiDiff"><option>Easy</option><option selected>Medium</option><option>Hard</option></select></label>
+          <label class="field" style="flex:1;min-width:200px">Topic or idea (optional)<input id="aiTopic" placeholder="e.g. ε-NFA with a cycle, strings ending in 01"></label>
+          <button class="btn" id="aiGo">Draft question</button>
+        </div>
+        <p class="tiny muted" style="margin:8px 0 0">Uses the question type chosen below. If Gemini is unavailable, the simulator drafts one itself.</p>
+      </details>
+
+      <div class="stack">
+        <div class="row" style="gap:12px;align-items:end">
+          <label class="field" style="flex:1;min-width:200px">Question type<select id="type"></select></label>
+          <label class="field" style="width:150px">Bloom's level<select id="bloom"></select></label>
+          <label class="field" style="width:120px">Outcome<select id="lo"></select></label>
+        </div>
+        <div class="row" style="gap:12px;align-items:end">
+          <label class="field" style="width:150px">Difficulty<select id="diff"><option>Easy</option><option selected>Medium</option><option>Hard</option></select></label>
+          <label class="field" style="width:110px">Marks<input type="number" id="marks" min="1" max="20" value="5"></label>
+          <label class="field" style="flex:1;min-width:160px">Author (optional)<input id="author" placeholder="Your name"></label>
+        </div>
+        <label class="field">Question text<textarea id="text" rows="3" placeholder="Start with a Bloom action verb, e.g. “Construct an equivalent DFA for the NFA below.”"></textarea><span class="hint" id="verbHint"></span></label>
+
+        <div data-for="construct accept closure count"><h3 style="margin-top:4px">Automaton</h3><div id="autoEd"></div></div>
+        <div data-for="design">
+          <h3 style="margin-top:4px">Reference automaton <span class="small muted">(hidden from students; any equivalent answer is accepted)</span></h3>
+          <div id="refEd"></div>
+          <label class="check" style="margin-top:8px"><input type="checkbox" id="reqDfa" checked> Students must give a DFA (not just an NFA)</label>
+        </div>
+        <label class="field" data-for="accept">Strings to classify (one per line, ε for empty)<textarea id="strings" class="code" rows="4" placeholder="ab&#10;aab&#10;ba"></textarea></label>
+        <label class="field" data-for="closure">Compute the ε-closure of<select id="state"></select></label>
+        <label class="field" data-for="count">Ask for<select id="what"><option value="dfa">States of the DFA from subset construction</option><option value="minimal">States of the minimal DFA</option></select></label>
+        <div data-for="mcq" class="field"><span style="font-size:13px;font-weight:600">Options <span class="hint">(select the correct one)</span></span><div id="opts" class="stack"></div><button class="btn sm quiet" id="addOpt" style="justify-self:start">Add option</button></div>
+        <div data-for="tf" class="field"><span style="font-size:13px;font-weight:600">The statement is</span><div class="seg" id="tfSeg"><button type="button" data-v="true" aria-pressed="true">True</button><button type="button" data-v="false" aria-pressed="false">False</button></div></div>
+        <label class="field" data-for="mcq tf">Explanation shown after answering<textarea id="expl" rows="2"></textarea></label>
+        <label class="field" data-for="short">Model answer<textarea id="model" rows="4"></textarea></label>
+
+        <div class="panel" style="background:var(--sheet-2)"><h3 style="margin-top:0">Answer key (worked out by the engine)</h3><div id="key" class="small"></div></div>
+        <div id="errors"></div>
+        <div class="row">
+          <button class="btn primary" id="save">Save question</button>
+          <button class="btn" id="saveCopy" hidden>Save as a copy</button>
+          <button class="btn" id="try">Try it in Practice</button>
+        </div>
+      </div>
+    </section>
+
+    <aside aria-label="Saved questions">
+      <div class="panel sticky-col">
+        <div class="row between"><h2 style="margin:0">Saved questions</h2><span class="small muted" id="where"></span></div>
+        <div class="row" style="margin:10px 0">
+          <input type="search" id="q" placeholder="Search" style="flex:1;min-width:120px">
+          <select id="fBloom" style="width:auto"><option value="">All levels</option></select>
+        </div>
+        <div id="list" class="stack" style="max-height:70vh;overflow:auto"></div>
+      </div>
+    </aside>
+  </div>
+</main>
+<script src="automata.js"></script>
+<script src="qgen.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/graph.js"></script>
+<script src="assets/editor.js"></script>
+<script src="assets/bankstore.js"></script>
+<script src="assets/chat.js"></script>
+<script src="js/bank.js"></script>
+</body>
+</html>

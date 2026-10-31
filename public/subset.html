@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NFA → DFA · Automata Studio</title>
+<meta name="description" content="Step-by-step subset construction with ε-closures.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<main class="page" id="main">
+  <header class="page-head">
+    <div>
+      <h1>NFA → DFA by subset construction</h1>
+      <p>Enter an NFA or ε-NFA and watch every subset appear: the states taking part, the move, the ε-closure, and the DFA growing beside it.</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="toggleInput" aria-expanded="true" aria-controls="inputCol">Hide input</button>
+      <button class="btn" id="share" title="Copy a link that opens this automaton">Copy share link</button>
+    </div>
+  </header>
+
+  <div class="workspace two" id="ws">
+    <aside class="panel sticky-col input-col" id="inputCol" aria-label="Input">
+      <h2>Your NFA</h2>
+      <div id="input"></div>
+    </aside>
+
+    <section aria-label="Simulation" style="min-width:0">
+      <div class="row between" style="margin-bottom:10px">
+        <div class="seg" role="group" aria-label="Show">
+          <button type="button" data-view="both" aria-pressed="true">NFA and DFA</button>
+          <button type="button" data-view="nfa" aria-pressed="false">NFA only</button>
+          <button type="button" data-view="dfa" aria-pressed="false">DFA only</button>
+        </div>
+        <label class="row small">DFA state names
+          <select id="names" style="width:auto">
+            <option value="D">D0, D1, D2…</option>
+            <option value="letters">A, B, C…</option>
+            <option value="sets">Subsets {q0,q1}</option>
+          </select>
+        </label>
+      </div>
+      <div id="canvases" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px">
+        <div id="nfaCanvas" style="height:min(62vh,500px)"></div>
+        <div id="dfaCanvas" style="height:min(62vh,500px)"></div>
+      </div>
+      <div id="transport"></div>
+
+      <div class="under">
+        <div class="panel" aria-live="polite">
+          <div class="narrative" id="narrative"><p class="muted">Press Convert to start.</p></div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn sm" id="askStep">Ask the tutor about this step</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Reading the diagrams</h2>
+          <div class="stack small">
+            <div><span class="chip" style="background:var(--pen-soft);border-color:var(--pen)">set S</span> the DFA state being processed</div>
+            <div><span class="chip" style="background:var(--marker-soft);border-color:var(--marker)">move</span> reached by one symbol arrow</div>
+            <div><span class="chip" style="background:var(--eps-soft);border-color:var(--eps)">ε-closure</span> added by ε-moves (violet dashed arrows)</div>
+            <div><span class="chip">◎</span> double circle = accepting · dashed circle = dead state ∅</div>
+            <div class="muted">Keys: <kbd>Space</kbd> play/pause · <kbd>←</kbd> <kbd>→</kbd> step · <kbd>Home</kbd> <kbd>End</kbd></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top:14px">
+    <div class="row between"><h2 style="margin:0">Subset construction table</h2><span class="small muted" id="tableNote"></span></div>
+    <p class="small muted" style="margin:4px 0 10px">Rows appear as subsets are discovered; the highlighted cell is the one computed in the current step.</p>
+    <div class="table-wrap" id="workTable"></div>
+    <details style="margin-top:12px"><summary class="small"><b>Step log</b> (every move and closure so far)</summary><div class="table-wrap" id="log" style="margin-top:8px;max-height:320px"></div></details>
+  </section>
+
+  <section class="panel">
+    <h2>Result and checks</h2>
+    <div class="stats" id="stats"></div>
+    <div id="verify" style="margin-top:12px"></div>
+    <h3>Try a string</h3>
+    <div class="row">
+      <input id="w" class="code" placeholder="abab   (empty = ε)" style="max-width:260px" autocomplete="off" spellcheck="false">
+      <button class="btn" id="test">Test on both machines</button>
+    </div>
+    <div id="testOut" class="small" style="margin-top:8px"></div>
+    <hr class="rule">
+    <div class="row">
+      <button class="btn" id="toRun">Animate strings on this NFA</button>
+      <button class="btn" id="toMin">Minimise this DFA</button>
+      <button class="btn" id="copyDfa">Copy DFA as text</button>
+      <button class="btn quiet" id="toPractice">Practise a similar question</button>
+    </div>
+  </section>
+</main>
+<script src="automata.js"></script>
+<script src="qgen.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/graph.js"></script>
+<script src="assets/player.js"></script>
+<script src="assets/editor.js"></script>
+<script src="assets/chat.js"></script>
+<script src="js/subset.js"></script>
+</body>
+</html>

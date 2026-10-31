@@ -1,1 +1,8 @@
-{"name":"nfa-dfa-studio","version":"1.0.0","description":"CSET302 NFA→DFA simulator: full-stack + AI tutor","scripts":{"start":"node server.js","test":"node test.js"},"engines":{"node":">=18"}}
+{
+  "name": "automata-studio",
+  "version": "2.0.0",
+  "description": "CSET302 Automata Studio: NFA→DFA subset construction, string runs, DFA minimisation, Bloom-levelled practice and timed exams, question bank and a Gemini tutor with offline fallback.",
+  "scripts": { "start": "node server.js", "test": "node test.js" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

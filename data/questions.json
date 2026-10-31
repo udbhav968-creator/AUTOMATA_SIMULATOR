@@ -1,1 +1,137 @@
-[]
+[
+  {
+    "id": "seed-def",
+    "type": "mcq",
+    "text": "Identify the transition function of an NFA with ε-moves.",
+    "bloom": "Remember",
+    "difficulty": "Easy",
+    "marks": 1,
+    "lo": "LO1",
+    "author": "Sample",
+    "origin": "manual",
+    "at": "2026-10-31T00:00:00.000Z",
+    "options": [
+      "δ : Q × Σ → Q",
+      "δ : Q × (Σ ∪ {ε}) → 2^Q",
+      "δ : Q → Σ",
+      "δ : 2^Q × Σ → Q"
+    ],
+    "answer": 1,
+    "explanation": "An ε-NFA may move on a symbol or on ε, and may go to any set of states."
+  },
+  {
+    "id": "seed-tf",
+    "type": "tf",
+    "text": "Explain whether this is true: the DFA produced by subset construction never has more than 2^n states, where n is the number of NFA states.",
+    "bloom": "Understand",
+    "difficulty": "Easy",
+    "marks": 1,
+    "lo": "LO2",
+    "author": "Sample",
+    "origin": "manual",
+    "at": "2026-10-31T00:00:00.000Z",
+    "answer": true,
+    "explanation": "Each DFA state is a subset of the n NFA states."
+  },
+  {
+    "id": "seed-short",
+    "type": "short",
+    "text": "Describe why the ε-closure must be taken after every move in subset construction.",
+    "bloom": "Understand",
+    "difficulty": "Medium",
+    "marks": 4,
+    "lo": "LO2",
+    "author": "Sample",
+    "origin": "manual",
+    "at": "2026-10-31T00:00:00.000Z",
+    "model": "After reading a symbol, the NFA may immediately follow ε-moves without consuming input, so every state reachable by ε from the move result is also active. Without the closure the DFA would miss those states and could reject strings the NFA accepts."
+  },
+  {
+    "id": "seed-closure",
+    "type": "closure",
+    "text": "Compute ε-closure(q1) for the ε-NFA below.",
+    "bloom": "Apply",
+    "difficulty": "Easy",
+    "marks": 2,
+    "lo": "LO2",
+    "author": "Sample",
+    "origin": "manual",
+    "at": "2026-10-31T00:00:00.000Z",
+    "src": "start: q0\nfinal: q3\nq0,a = q1\nq1,ε = q2\nq2,ε = q3\nq3,b = q1\nq2,a = q0",
+    "state": "q1"
+  },
+  {
+    "id": "seed-accept",
+    "type": "accept",
+    "text": "Trace the ε-NFA for a*b*c* on each string and decide whether it is accepted.",
+    "bloom": "Apply",
+    "difficulty": "Medium",
+    "marks": 4,
+    "lo": "LO3",
+    "author": "Sample",
+    "origin": "manual",
+    "at": "2026-10-31T00:00:00.000Z",
+    "src": "start: q0\nfinal: q2\nq0,a = q0\nq0,ε = q1\nq1,b = q1\nq1,ε = q2\nq2,c = q2",
+    "strings": [
+      "aabbcc",
+      "",
+      "cba",
+      "bbc"
+    ]
+  },
+  {
+    "id": "seed-count",
+    "type": "count",
+    "text": "Determine the number of states in the DFA obtained by subset construction from this NFA (third symbol from the end is a).",
+    "bloom": "Analyze",
+    "difficulty": "Hard",
+    "marks": 3,
+    "lo": "LO2",
+    "author": "Sample",
+    "origin": "manual",
+    "at": "2026-10-31T00:00:00.000Z",
+    "src": "start: q0\nfinal: q3\nq0,a = q0,q1\nq0,b = q0\nq1,a = q2\nq1,b = q2\nq2,a = q3\nq2,b = q3",
+    "what": "dfa"
+  },
+  {
+    "id": "seed-eval",
+    "type": "tf",
+    "text": "Justify or refute: if two DFAs have the same number of states and the same set of final states, they accept the same language.",
+    "bloom": "Evaluate",
+    "difficulty": "Medium",
+    "marks": 2,
+    "lo": "LO5",
+    "author": "Sample",
+    "origin": "manual",
+    "at": "2026-10-31T00:00:00.000Z",
+    "answer": false,
+    "explanation": "Equal size says nothing about the transitions. For example, two 2-state DFAs over {a} can accept even-length and odd-length strings respectively; only a language-equivalence check (or a distinguishing string) settles it."
+  },
+  {
+    "id": "seed-construct",
+    "type": "construct",
+    "text": "Construct an equivalent DFA for the ε-NFA of (a|b)*abb (Thompson form). Show the ε-closure used for every new state.",
+    "bloom": "Create",
+    "difficulty": "Medium",
+    "marks": 8,
+    "lo": "LO2",
+    "author": "Sample",
+    "origin": "manual",
+    "at": "2026-10-31T00:00:00.000Z",
+    "src": "start: 0\nfinal: 10\n0,ε = 1,7\n1,ε = 2,4\n2,a = 3\n4,b = 5\n3,ε = 6\n5,ε = 6\n6,ε = 1,7\n7,a = 8\n8,b = 9\n9,b = 10"
+  },
+  {
+    "id": "seed-design",
+    "type": "design",
+    "text": "Design a DFA over {0,1} that accepts binary strings containing the substring 101.",
+    "bloom": "Create",
+    "difficulty": "Medium",
+    "marks": 6,
+    "lo": "LO6",
+    "author": "Sample",
+    "origin": "manual",
+    "at": "2026-10-31T00:00:00.000Z",
+    "reference": "start: A\nfinal: D\nA,0=A\nA,1=B\nB,0=C\nB,1=B\nC,0=A\nC,1=D\nD,0=D\nD,1=D",
+    "requireDFA": true
+  }
+]

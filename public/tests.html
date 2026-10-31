@@ -1,9 +1,51 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="shared.css"><title>Test Suite · NFA→DFA Studio</title></head><body><main>
-<h1>Automated Test Suite</h1><p class="sub">Expected vs actual results for normal, ε, edge, flexible-syntax, stress and constraint cases. Every case also checks NFA ≡ DFA on all strings up to length 5.</p>
-<div class="card"><div class="row" style="margin:0"><button id="rr">Run all tests</button><span id="sum"></span></div><div class="scroll" style="margin-top:10px"><table id="t"></table></div></div>
-</main><script src="nav.js"></script><script src="automata.js"></script><script src="cases.js"></script><script>
-function go(){let p=0;const rows=CASES.map(c=>{const r=runCase(Automata,c);if(r.pass)p++;return "<tr><td>"+(r.pass?'<span class="pill y">PASS</span>':'<span class="pill n">FAIL</span>')+"</td><td><b>"+r.name+"</b><div class='small'>"+r.cat+"</div></td><td style='white-space:normal'>"+r.exp.join("<br>")+"</td><td style='white-space:normal'>"+r.act.join("<br>")+"</td></tr>"}).join("");
-document.getElementById("t").innerHTML="<tr><th>Result</th><th>Case</th><th>Expected</th><th>Actual</th></tr>"+rows.replace(/<(?!\/?(tr|td|th|b|br|div|span)\b)/g,"&lt;");
-document.getElementById("sum").innerHTML='<span class="pill '+(p===CASES.length?"y":"n")+'">'+p+" / "+CASES.length+" passed</span>"}
-document.getElementById("rr").onclick=go;go();
-</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Test suite · Automata Studio</title>
+<meta name="description" content="Automated edge-case tests for the engine.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<main class="page" id="main">
+  <header class="page-head"><div><h1>Test suite</h1><p>Every case runs live against the engine in your browser: expected and actual results side by side. The same suite runs from the command line with <code>node test.js</code>.</p></div>
+    <div class="actions"><button class="btn primary" id="again">Run again</button><button class="btn" onclick="print()">Print</button></div></header>
+  <div class="stats" id="summary"></div>
+  <section class="panel" style="margin-top:14px"><div class="row between"><h2 style="margin:0">Edge cases</h2><select id="cat" style="width:auto"><option value="">All categories</option></select></div><div class="table-wrap" id="cases" style="margin-top:10px"></div></section>
+  <section class="panel"><h2>Grader self-check</h2><p class="small muted" style="margin:0 0 10px">For each question type and difficulty, generated questions are answered with their own solution; all must be marked correct.</p><div class="table-wrap" id="grading"></div></section>
+</main>
+<script src="automata.js"></script>
+<script src="qgen.js"></script>
+<script src="cases.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/chat.js"></script>
+<script>
+(function () {
+  const { $, esc } = Studio;
+  [...new Set(CASES.map(c => c[1]))].forEach(c => $("#cat").append(new Option(c, c)));
+  let results = [];
+  function run() {
+    const t0 = performance.now();
+    results = CASES.map(c => runCase(Automata, c));
+    const g = gradingCheck(Automata, QGen, 3), ms = Math.round(performance.now() - t0);
+    const pass = results.filter(r => r.pass).length, gOk = g.reduce((a, r) => a + r.ok, 0), gN = g.reduce((a, r) => a + r.n, 0);
+    $("#summary").innerHTML = [[`${pass}/${results.length}`, "edge cases passed"], [`${gOk}/${gN}`, "grader self-checks"], [new Set(CASES.map(c => c[1])).size, "categories"], [ms + " ms", "total time"]].map(s => `<div class="stat"><b>${s[0]}</b><span>${s[1]}</span></div>`).join("");
+    paint();
+    $("#grading").innerHTML = `<table class="data"><thead><tr><th>Question type</th><th>Bloom's level</th><th>Difficulty</th><th>Result</th></tr></thead><tbody>${g.map(r => `<tr><td>${esc(r.label)}</td><td><span class="tag" data-bloom="${r.bloom}">${r.bloom}</span></td><td>${r.difficulty}</td><td><span class="pill ${r.ok === r.n ? "yes" : "no"}">${r.ok}/${r.n}</span></td></tr>`).join("")}</tbody></table>`;
+  }
+  function paint() {
+    const cat = $("#cat").value;
+    $("#cases").innerHTML = `<table class="data"><thead><tr><th>Result</th><th>Case</th><th>Category</th><th>Expected</th><th>Actual</th></tr></thead><tbody>${results.filter(r => !cat || r.cat === cat).map(r => `<tr><td><span class="pill ${r.pass ? "yes" : "no"}">${r.pass ? "pass" : "fail"}</span></td><td class="wrap"><b>${esc(r.name)}</b></td><td>${esc(r.cat)}</td><td class="wrap small">${r.exp.map(esc).join("<br>")}</td><td class="wrap small">${r.act.map(esc).join("<br>")}</td></tr>`).join("")}</tbody></table>`;
+  }
+  $("#again").addEventListener("click", run);
+  $("#cat").addEventListener("change", paint);
+  run();
+})();
+</script>
+</body>
+</html>

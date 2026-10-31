@@ -1,4 +1,0 @@
-(() => { if (location.search.includes("embed=1")) return; const P = [["/", "Simulator"], ["/questions.html", "Question Builder"], ["/theory.html", "Theory"], ["/explorer.html", "Language Explorer"], ["/tests.html", "Test Suite"], ["/report.html", "Report"]];
-const s = document.createElement("style"); s.textContent = "nav.top{display:flex;gap:4px;flex-wrap:wrap;padding:8px 16px;background:var(--card);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:5}nav.top a{padding:6px 12px;border-radius:8px;color:var(--tx);text-decoration:none;font:600 13px system-ui}nav.top a.on{background:var(--ac);color:#fff}@media print{nav.top{display:none}}"; document.head.append(s);
-const n = document.createElement("nav"), here = ["/", "/index.html"].includes(location.pathname) ? "/" : location.pathname; n.className = "top";
-n.innerHTML = P.map(p => `<a href="${p[0]}" class="${p[0] === here ? "on" : ""}">${p[1]}</a>`).join(""); document.body.prepend(n); })();
