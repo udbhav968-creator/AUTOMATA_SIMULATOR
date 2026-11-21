@@ -1,0 +1,32 @@
+digraph arch {
+  rankdir=TB; bgcolor="white"; fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=11, style="filled", shape=box, color="#2E5496", penwidth=1.2];
+  edge [color="#555555", penwidth=1.1];
+  graph [fontname="Helvetica", labelloc="t", fontsize=14, label="Automata Studio — System Architecture (NFA → DFA)"];
+
+  subgraph cluster_in {
+    label="1. Input & Parsing Layer"; style="filled,rounded"; color="#DDE6F5"; fontsize=12;
+    i1 [label="Transition text\nq0,a = q0,q1", fillcolor="#F2F6FC"];
+    i2 [label="δ-notation\nδ(q0,a) = {q1}", fillcolor="#F2F6FC"];
+    i3 [label="Table editor /\nRandom example", fillcolor="#F2F6FC"];
+  }
+  subgraph cluster_eng {
+    label="2. Core Engine  (lib/automata.js)"; style="filled,rounded"; color="#D7ECE0"; fontsize=12;
+    e1 [label="parse() + validate", fillcolor="#EAF7F0"];
+    e2 [label="ε-closure (cycle-safe)", fillcolor="#EAF7F0"];
+    e3 [label="build() — subset\nconstruction (BFS)", fillcolor="#EAF7F0"];
+    e4 [label="runNFA / runDFA\n(equivalence check)", fillcolor="#EAF7F0"];
+  }
+  subgraph cluster_ui {
+    label="3. Presentation Layer"; style="filled,rounded"; color="#F5E6D7"; fontsize=12;
+    u1 [label="subset.html + subset.js\nstepper · working table", fillcolor="#FCF3EA"];
+    u2 [label="graph.js\nNFA/DFA diagrams", fillcolor="#FCF3EA"];
+    u3 [label="player.js\ntransport controls", fillcolor="#FCF3EA"];
+  }
+  srv [label="server.js  —  static files + /api/convert + /api/health", shape=box, fillcolor="#1F3864", fontcolor="white"];
+
+  i1 -> e1; i2 -> e1; i3 -> e1;
+  e1 -> e2 -> e3; e3 -> e4;
+  e3 -> u1; e3 -> u2; e3 -> u3;
+  e1 -> srv [style=dashed]; srv -> e3 [style=dashed, label="REST"];
+}

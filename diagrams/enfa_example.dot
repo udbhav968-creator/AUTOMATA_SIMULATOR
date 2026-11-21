@@ -1,0 +1,14 @@
+digraph enfa {
+  rankdir=LR; bgcolor="white"; fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=12];
+  edge [fontname="Helvetica", fontsize=11, color="#2E5496"];
+  graph [labelloc="t", fontsize=13, fontname="Helvetica", label="Example ε-NFA — accepts a*b  (an ε-move from q0 to q1)"];
+  _s [shape=point, width=0.01];
+  q0 [shape=circle, style=filled, fillcolor="#EAF7F0"];
+  q1 [shape=circle, style=filled, fillcolor="#EAF7F0"];
+  q2 [shape=doublecircle, style=filled, fillcolor="#D7ECE0"];
+  _s -> q0;
+  q0 -> q0 [label="a"];
+  q0 -> q1 [label="ε", style=dashed, color="#7c3aed", fontcolor="#7c3aed"];
+  q1 -> q2 [label="b"];
+}

@@ -1,0 +1,27 @@
+digraph flow {
+  rankdir=TB; bgcolor="white"; fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=11];
+  edge [fontname="Helvetica", fontsize=10, color="#555555"];
+  graph [labelloc="t", fontsize=14, fontname="Helvetica", label="Rabin–Scott Subset Construction — Flowchart"];
+
+  start  [shape=oval, style=filled, fillcolor="#1F3864", fontcolor="white", label="Start"];
+  d0     [shape=box, style="filled,rounded", fillcolor="#EAF7F0", label="D0 = ε-closure({ q0 })\nqueue = [D0]"];
+  chk    [shape=diamond, style=filled, fillcolor="#FCF3EA", label="queue\nempty?"];
+  pop    [shape=box, style="filled,rounded", fillcolor="#EAF7F0", label="S = dequeue()"];
+  loop   [shape=diamond, style=filled, fillcolor="#FCF3EA", label="more symbols\nc in Σ?"];
+  mv     [shape=box, style="filled,rounded", fillcolor="#F2F6FC", label="T = ε-closure( move(S, c) )"];
+  new    [shape=diamond, style=filled, fillcolor="#FCF3EA", label="T is a\nnew subset?"];
+  add    [shape=box, style="filled,rounded", fillcolor="#F2F6FC", label="add T as a DFA state,\nenqueue T, mark final\nif T ∩ F_N ≠ ∅"];
+  edge_  [shape=box, style="filled,rounded", fillcolor="#F2F6FC", label="record δ_D(S, c) = T"];
+  done   [shape=oval, style=filled, fillcolor="#1F3864", fontcolor="white", label="DFA complete"];
+
+  start -> d0 -> chk;
+  chk -> done [label="yes"];
+  chk -> pop  [label="no"];
+  pop -> loop;
+  loop -> chk [label="no"];
+  loop -> mv  [label="yes"];
+  mv -> new;
+  new -> add [label="yes"]; new -> edge_ [label="no"];
+  add -> edge_; edge_ -> loop;
+}

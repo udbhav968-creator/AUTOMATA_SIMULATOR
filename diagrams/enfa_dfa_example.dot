@@ -1,0 +1,15 @@
+digraph dfa {
+  rankdir=LR; bgcolor="white"; fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=12];
+  edge [fontname="Helvetica", fontsize=11, color="#2E5496"];
+  graph [labelloc="t", fontsize=13, fontname="Helvetica", label="Equivalent DFA by subset construction (ε-closures folded in)"];
+  _s [shape=point, width=0.01];
+  D0 [shape=circle, style=filled, fillcolor="#F2F6FC", label="D0\n{q0,q1}"];
+  D1 [shape=doublecircle, style=filled, fillcolor="#D7ECE0", label="D1\n{q2}"];
+  D2 [shape=circle, style="filled,dashed", fillcolor="#F5EAEA", label="D2\n∅ (dead)"];
+  _s -> D0;
+  D0 -> D0 [label="a"];
+  D0 -> D1 [label="b"];
+  D1 -> D2 [label="a,b"];
+  D2 -> D2 [label="a,b"];
+}
