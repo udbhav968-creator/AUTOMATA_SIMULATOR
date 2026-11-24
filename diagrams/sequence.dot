@@ -1,0 +1,17 @@
+digraph seq {
+  rankdir=TB; bgcolor="white"; fontname="Helvetica"; nodesep=0.5;
+  graph [labelloc="t", fontsize=14, label="Conversion sequence: user → engine → UI"];
+  node [shape=box, style="filled,rounded", fontname="Helvetica", fontsize=11, color="#2E5496"];
+  edge [fontname="Helvetica", fontsize=10, color="#555555"];
+
+  u  [label="1. User: enter NFA / ε-NFA,\npress Convert", fillcolor="#FCF3EA"];
+  p  [label="2. parse(text): validate\nQ, Σ, q0, F, δ", fillcolor="#EAF7F0"];
+  d0 [label="3. D0 = ε-closure({q0})", fillcolor="#EAF7F0"];
+  lp [label="4. For each subset S and c ∈ Σ:\nT = ε-closure(move(S, c));\nregister new DFA states,\nrecord δ_D(S, c)", fillcolor="#EAF7F0"];
+  out[label="5. Engine → UI:\nDFA states, transitions, step log", fillcolor="#F2F6FC"];
+  ver[label="6. Verify: run NFA and DFA on\nall strings up to length L", fillcolor="#F2F6FC"];
+  res[label="7. ✓ Equivalent (or shortest\ncounter-example)", fillcolor="#D7ECE0"];
+
+  u -> p -> d0 -> lp -> out -> ver -> res;
+  lp -> lp [label="  repeat while\n  new subsets remain", color="#2E5496", style=dashed];
+}

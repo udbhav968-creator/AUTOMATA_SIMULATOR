@@ -1,0 +1,14 @@
+digraph nfa {
+  rankdir=LR; bgcolor="white"; fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=12];
+  edge [fontname="Helvetica", fontsize=11, color="#2E5496"];
+  graph [labelloc="t", fontsize=13, fontname="Helvetica", label="Example NFA — strings over {a,b} ending in \"ab\""];
+  _s [shape=point, width=0.01]; 
+  q0 [shape=circle, style=filled, fillcolor="#EAF7F0"];
+  q1 [shape=circle, style=filled, fillcolor="#EAF7F0"];
+  q2 [shape=doublecircle, style=filled, fillcolor="#D7ECE0"];
+  _s -> q0;
+  q0 -> q0 [label="a, b"];
+  q0 -> q1 [label="a"];
+  q1 -> q2 [label="b"];
+}

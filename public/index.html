@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Home · Automata Studio</title>
+<meta name="description" content="Interactive CSET302 simulator: convert an NFA or ε-NFA to a DFA by subset construction, step by step.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<main class="page" id="main">
+  <section class="hero">
+    <div>
+      <h1>Watch an ε-NFA turn into a DFA, one subset at a time.</h1>
+      <p class="lede">Automata Studio is the CSET302 simulator for converting an ε-NFA to a DFA by the Rabin–Scott subset construction (a plain NFA works too — it's just the case with no ε-moves). Enter your automaton and watch every ε-closure, every move, and the DFA growing beside it — then it checks automatically that both machines accept the same language.</p>
+      <div class="row">
+        <a class="btn primary" href="subset.html">Open the ε-NFA → DFA simulator</a>
+      </div>
+    </div>
+    <div>
+      <div id="demo" style="height:380px"></div>
+      <div class="caption" id="caption" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>What the simulator does</h2>
+    <p class="muted">The input accepts text, a transition table or a random example, is checked as you type, and plays back every step at the speed you choose.</p>
+    <div class="lanes">
+      <div class="lane"><h3>ε-closure &amp; move</h3><p>Iterative ε-closure with cycle termination, and the union <code>move(S, c)</code> for each input symbol, shown explicitly at every step.</p></div>
+      <div class="lane"><h3>Subset construction</h3><p>The NFA lights up the states in each subset while the DFA grows beside it, and the working table fills in cell by cell with a full step log.</p></div>
+      <div class="lane"><h3>Automatic verification</h3><p>After conversion the engine runs the NFA and the DFA on every string up to a length bound and confirms they accept exactly the same language.</p></div>
+    </div>
+    <div class="row" style="margin-top:16px"><a class="btn" href="subset.html">Open the simulator</a></div>
+  </section>
+
+  <p class="tiny muted" style="margin-top:36px">Keyboard in the simulator: <kbd>Space</kbd> play or pause · <kbd>←</kbd> <kbd>→</kbd> step · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> run the input.</p>
+</main>
+<script src="automata.js"></script>
+<script src="assets/shell.js"></script>
+<script src="assets/graph.js"></script>
+<script>
+(function () {
+  "use strict";
+  const { $ } = Studio, A = Automata;
+
+  const N = A.parse("start: q0\nfinal: q2\nq0,a = q0,q1\nq0,b = q0\nq1,b = q2"), M = A.build(N);
+  const view = new GraphView($("#demo"), { title: "Strings ending in ab: the DFA being built", interactive: false });
+  view.setGraph({ nodes: M.D.map((d, i) => ({ id: "D" + i, label: "D" + i, sub: A.fmtSet(d.set), final: d.fin, start: i === 0 })), edges: M.trans.map(t => ({ from: "D" + t.f, to: "D" + t.t, sym: t.c })) });
+  const say = s => s.type === "init" ? `Start: ε-closure(q0) = ${A.fmtSet(s.closure)} becomes D0.` : `D${s.from} on “${s.c}”: move = ${A.fmtSet(s.move)}, closure = ${A.fmtSet(s.closure)} → ${s.isNew ? "new state D" + s.to : "existing D" + s.to}.`;
+  let i = 0;
+  function frame() {
+    const s = M.steps[i];
+    const visN = new Set(M.D.map((d, k) => k).filter(k => M.D[k].discovered <= i).map(k => "D" + k));
+    const visE = new Set(M.trans.filter(t => t.step <= i).map(t => `D${t.f}|D${t.t}|${t.c}`));
+    const cls = {}; if (s.type === "move") cls["D" + s.from] = "current"; cls["D" + s.to] = (cls["D" + s.to] ? cls["D" + s.to] + " " : "") + (s.isNew ? "fresh" : "");
+    view.setView({ visibleNodes: visN, visibleEdges: visE, classes: cls, hotEdges: new Set(s.type === "move" ? [`D${s.from}|D${s.to}|${s.c}`] : []), pulse: s.isNew ? "D" + s.to : null });
+    $("#caption").textContent = `Step ${i + 1} of ${M.steps.length}. ${say(s)}`;
+  }
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { i = M.steps.length - 1; frame(); }
+  else { frame(); setInterval(() => { i = (i + 1) % (M.steps.length + 2); if (i < M.steps.length) frame(); }, 1700); }
+})();
+</script>
+</body>
+</html>
