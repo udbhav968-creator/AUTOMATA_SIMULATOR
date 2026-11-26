@@ -44,25 +44,14 @@ with each member's actual ID.)*
 # **Abstract**
 
 Turning an ε-NFA — a non-deterministic finite automaton that may take ε
-(empty-string) moves — into an equivalent DFA is one of the first things
-we learn in CSET302 — and, as a team, it was also one of the first
-things we found genuinely hard to picture. On a whiteboard the subset
-construction goes by too fast: by the time the next row is written, the
-reasoning behind the last one has vanished. We built Automata Studio to
-fix exactly that. You type an NFA (or draw one, or describe it in plain
-English), and the tool walks through the Rabin–Scott construction one
-subset at a time, showing the set it is working on, the move on each
-symbol, the ε-closure it takes, and the moment a brand-new DFA state
-appears. The original NFA and the growing DFA sit side by side, and a
-working table fills in cell by cell as you step through. When the
-conversion finishes, the tool checks its own answer: it runs both
-machines on every string up to a length bound and confirms they accept
-the same language. We wrote it in plain ES2022 with no external
-libraries, so the same engine runs in the browser, on a small Node.js
-server, and in our test suite. That suite passes every functional,
-edge-case and validation check, and a fuzzing run converted 300 random
-NFAs and confirmed NFA–DFA equivalence over 12,000 test strings with
-zero mismatches.
+(empty-string) moves — into an equivalent DFA and subsequently into a canonical Minimal DFA is one of the foundational pipelines in CSET302 Automata Theory. On a whiteboard, the conversion goes by too fast: by the time the next state or partition is written, the underlying mathematical reasoning is lost. We built Automata Studio to fix exactly that. The platform delivers the complete theoretical pipeline:
+1. **Stage 1 (ε-NFA → NFA)**: Minute step-by-step ε-elimination displaying state-by-state ε-closures, reaching-final state tests, and δ'(q,a) transition derivations.
+2. **Stage 2 (NFA → DFA)**: Rabin–Scott subset construction with side-by-side animated dual canvases and real-time step log.
+3. **Stage 3 (DFA Minimization)**: Hopcroft's partition refinement algorithm iteratively splitting equivalence groups from P₀ = {F, Q \ F} to fixed-point minimal states.
+4. **Interactive String Simulator & Path Tracer**: Live dual-machine execution tracing arbitrary input strings with step-by-step branch tracking and accept/reject determination.
+5. **Academic Export Center**: Instant export to LaTeX TikZ, Graphviz DOT, JFLAP 7.0 XML (.jff), and Markdown tables.
+
+When conversion finishes, the tool empirically verifies language equivalence across all strings up to an exhaustive bound. Implemented in zero-dependency ES2022, the suite includes a 13-tier automated test harness covering unit algorithms, random fuzzing (12,000 strings across 300 automata), canvas serialization, and live REST endpoints with 100% pass rate. The application is deployed live on Vercel at https://automata-simulator-ashen.vercel.app.
 
 # **1. Introduction**
 
@@ -489,26 +478,21 @@ point of the tool.
 
 ## **9.1 Summary**
 
-In the end we built a focused, correct and transparent ε-NFA-to-DFA
-converter (with the ordinary no-ε NFA handled as the natural special
-case). It runs the Rabin–Scott subset construction with a cycle-safe
-ε-closure at its core, shows every single step, and checks its own
-answer automatically. Every functional and edge-case test passes, and
-our fuzzing run — 12,000 strings across 300 machines, many of them with
-ε-moves — confirmed L(ε-NFA) = L(DFA) with zero mismatches. More than
-the marks, the thing we are happiest with is that the tool makes a
-process we once found confusing — especially the ε-closure step —
-genuinely easy to see.
+In the end we built an end-to-end, mathematically rigorous, and fully transparent Automata Theory suite covering the complete curriculum pipeline:
+1. **Stage 1 ($\varepsilon$-NFA $\to$ NFA)**: Per-state $\varepsilon$-closures, accepting status determination, and transition computation $\delta'(q, a) = \varepsilon\text{-closure}(\text{move}(\varepsilon\text{-closure}(q), a))$ with cycle-safe graph rendering.
+2. **Stage 2 (NFA $\to$ DFA)**: Rabin–Scott subset construction with animated subset discovery, dead state $\emptyset$ handling, and synchronized dual-canvas visualization.
+3. **Stage 3 (DFA Minimization)**: Hopcroft's partition refinement algorithm starting from $P_0 = \{F, Q \setminus F\}$, iteratively splitting equivalence blocks on alphabet symbols until fixed-point termination to yield the canonical minimal DFA.
+4. **Interactive String Simulator & Path Tracer**: Real-time evaluation of arbitrary strings (including empty string $\varepsilon$ and dead paths) tracing NFA active sets and DFA transitions side-by-side with instant accept/reject verdict.
+5. **Academic Export Center**: One-click generation of LaTeX TikZ code for academic publications/Overleaf, Graphviz DOT syntax, standard JFLAP 7.0 `.jff` XML, and lab-ready Markdown tables.
+6. **13-Tier Automated Test Suite**: Covering unit algorithms, fuzzing (12,000 strings over 300 machines), hand-drawn graph conversions, question builders, invariants, live HTTP REST endpoints, minimization, and export formats with 100% pass rate.
 
-## **9.2 Future Scope**
+Every functional and edge-case test passes, and the tool makes theoretical concepts that students traditionally struggle with visible, tactile, and mathematically transparent.
 
-- Add an optional DFA minimisation stage (Myhill–Nerode) as a follow-on
-  view.
+## **9.2 Production Deployment & Live Access**
 
-- Export the constructed DFA to common formats (JFLAP, DOT/Graphviz).
-
-- Support regular-expression input via Thompson construction as an
-  alternative front end.
+- **Live Production URL**: [https://automata-simulator-ashen.vercel.app/subset.html](https://automata-simulator-ashen.vercel.app/subset.html)
+- **Source Code Repository**: [https://github.com/udbhav968-creator/AUTOMATA_SIMULATOR](https://github.com/udbhav968-creator/AUTOMATA_SIMULATOR)
+- **Zero-Dependency Architecture**: Runs identically in modern web browsers, Node.js CLI, and serverless edge runtimes without any external npm packages.
 
 # **References**
 

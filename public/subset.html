@@ -38,6 +38,7 @@
           <div class="seg" role="group" id="stageSeg" aria-label="Pipeline Stage">
             <button type="button" data-stage="enfa-to-nfa" id="stageEnfaBtn" aria-pressed="false" style="display:none">1. ε-NFA → NFA (ε-elimination)</button>
             <button type="button" data-stage="nfa-to-dfa" id="stageNfaDfaBtn" aria-pressed="true">2. NFA → DFA (subset construction)</button>
+            <button type="button" data-stage="dfa-min" id="stageMinBtn" aria-pressed="false">3. DFA Minimization (Hopcroft)</button>
             <button type="button" data-stage="direct-dfa" id="stageDirectBtn" aria-pressed="false">Direct ε-NFA → DFA</button>
           </div>
         </div>
@@ -84,6 +85,27 @@
     </section>
   </div>
 
+  <!-- Interactive String Testing & Path Tracer -->
+  <section class="panel" style="margin-top:14px" id="tracerPanel">
+    <div class="row between" style="align-items:center;flex-wrap:wrap;gap:8px">
+      <div>
+        <h2 style="margin:0">⚡ Interactive String Testing & Path Tracer</h2>
+        <p class="small muted" style="margin:3px 0 0">Trace string execution step-by-step through NFA and DFA side-by-side with accept/reject verification.</p>
+      </div>
+      <div class="row small" style="gap:6px" id="tracePresets">
+        <span class="muted tiny">Quick tests:</span>
+        <button type="button" class="btn sm ghost" data-word="">ε (empty)</button>
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="traceInput" placeholder="Enter input string (e.g. abb, 010, or ε)" style="flex:1;min-width:240px;font-family:monospace;font-weight:600">
+      <button class="btn primary sm" id="traceRunBtn">▶ Test String</button>
+      <button class="btn sm" id="traceStepBtn">Step Path</button>
+      <button class="btn sm ghost" id="traceClearBtn">Clear</button>
+    </div>
+    <div id="traceResult" style="margin-top:10px;display:none"></div>
+  </section>
+
   <section class="panel" style="margin-top:14px">
     <div class="row between"><h2 style="margin:0" id="tableTitle">Working table</h2><span class="small muted" id="tableNote"></span></div>
     <p class="small muted" id="tableSubtitle" style="margin:4px 0 10px">The highlighted row and cell show the calculation in the current step.</p>
@@ -95,19 +117,24 @@
     <h2>Result and checks</h2>
     <div class="stats" id="stats"></div>
     <div id="enfaStep" style="margin-top:12px"></div>
+    <div id="minStep" style="margin-top:12px"></div>
     <div id="verify" style="margin-top:12px"></div>
-    <div class="row" style="margin-top:12px">
+    <div class="row" style="margin-top:14px;gap:8px;flex-wrap:wrap">
       <button class="btn" id="copyDfa">Copy DFA as text</button>
+      <button class="btn" id="copyTikz">Copy LaTeX (TikZ)</button>
+      <button class="btn" id="copyDot">Copy Graphviz (DOT)</button>
+      <button class="btn" id="downloadJff">Download JFLAP (.jff)</button>
+      <button class="btn" id="copyMdTable">Copy Markdown Table</button>
     </div>
   </section>
 </main>
-<script src="automata.js"></script>
-<script src="extract.js"></script>
-<script src="assets/shell.js"></script>
-<script src="assets/graph.js"></script>
-<script src="assets/player.js"></script>
-<script src="assets/canvas-editor.js"></script>
-<script src="assets/editor.js"></script>
-<script src="js/subset.js"></script>
+<script src="automata.js?v=2.2"></script>
+<script src="extract.js?v=2.2"></script>
+<script src="assets/shell.js?v=2.2"></script>
+<script src="assets/graph.js?v=2.2"></script>
+<script src="assets/player.js?v=2.2"></script>
+<script src="assets/canvas-editor.js?v=2.2"></script>
+<script src="assets/editor.js?v=2.2"></script>
+<script src="js/subset.js?v=2.2"></script>
 </body>
 </html>

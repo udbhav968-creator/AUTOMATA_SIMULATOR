@@ -348,7 +348,15 @@ async function runTier10() {
     const resExt = await fetch(`http://localhost:${testPort}/extract.js`);
     ok10(resSubset.status === 200 && resAuto.status === 200 && resExt.status === 200, "Serves static HTML and universal JS modules");
 
-    // 6. 404 handler: GET /not-existent
+    // 6. POST /api/trace (interactive string tracer)
+    const traceRes = await fetch(`http://localhost:${testPort}/api/trace`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ src: "start: q0\nfinal: q1\nq0,a = q1", word: "a" })
+    }).then(r => r.json());
+    ok10(traceRes && traceRes.dfaAccepted === true && traceRes.nfaAccepted === true, "POST /api/trace executes string tracer");
+
+    // 7. 404 handler: GET /not-existent
     const res404 = await fetch(`http://localhost:${testPort}/non-existent-page.html`);
     ok10(res404.status === 404, "Returns 404 for non-existent routes");
   } finally {
@@ -360,9 +368,88 @@ async function runTier10() {
   const tier10 = f10 === 0;
   console.log(`Tier 10 \u2014 live HTTP server and REST API integration: ${p10}/${p10 + f10} pass${tier10 ? " \u2713" : " \u2717"}`);
 
-  const allPass = tier1 && tier2 && tier3 && tier4 && tier5 && tier6 && tier7 && tier8 && tier9 && tier10;
+  // ---------- Tier 11: DFA Minimization (Hopcroft's Partition Refinement) ----------
+  let p11 = 0, f11 = 0;
+  const ok11 = (cond, name, extra) => { if (cond) p11++; else { f11++; console.log("  \u2717 " + name + (extra ? "  (" + extra + ")" : "")); } };
+
+  // 1. Reducible DFA test: 5 states -> 3 minimal states
+  const N_red = A.parse("start: q0\nfinal: q3,q4\nq0,a = q1\nq0,b = q2\nq1,a = q3\nq1,b = q4\nq2,a = q3\nq2,b = q4\nq3,a = q3\nq3,b = q3\nq4,a = q4\nq4,b = q4\n");
+  const M_red = A.build(N_red);
+  const min_red = A.minimizeDFA(N_red, M_red);
+  ok11(min_red.originalStateCount === 5 && min_red.minStateCount === 3 && min_red.wasReduced === true, "Hopcroft partition merges equivalent states (5 -> 3 states)");
+
+  // 2. Already minimal DFA
+  const N_min = A.parse("start: q0\nfinal: q2\nq0,a = q1\nq0,b = q0\nq1,a = q1\nq1,b = q2\nq2,a = q2\nq2,b = q2\n");
+  const M_min = A.build(N_min);
+  const min_res2 = A.minimizeDFA(N_min, M_min);
+  ok11(min_res2.originalStateCount === min_res2.minStateCount && min_res2.wasReduced === false, "Already minimal DFA is preserved without reduction");
+
+  // 3. Strict language equivalence between DFA and Minimal DFA
+  let equivAll = true;
+  const testWords = ["", "a", "b", "aa", "ab", "ba", "bb", "aaa", "aab", "aba", "abb", "baa", "bab", "bba", "bbb", "aabb", "bbaa"];
+  for (const w of testWords) {
+    const dfaAccept = A.runDFA(N_red, M_red, w.split(""));
+    let cur = min_red.minDFA.start;
+    let dead = false;
+    for (const c of w.split("")) {
+      const nxt = min_red.minDFA.tm[cur + "|" + c];
+      if (nxt === undefined) { dead = true; break; }
+      cur = nxt;
+    }
+    const minAccept = !dead && min_red.minDFA.finals.includes(cur);
+    if (dfaAccept !== minAccept) { equivAll = false; break; }
+  }
+  ok11(equivAll, "Original DFA and Minimal DFA are strictly language-equivalent on all test words");
+
+  // 4. Step-by-step partition log validation
+  ok11(min_red.steps.length >= 2 && min_red.steps[0].type === "init" && min_red.steps[min_red.steps.length - 1].type === "final",
+    "Minimization logs partition steps and fixed point");
+
+  const tier11 = f11 === 0;
+  console.log(`Tier 11 \u2014 DFA minimization (Hopcroft partition refinement): ${p11}/${p11 + f11} pass${tier11 ? " \u2713" : " \u2717"}`);
+
+  // ---------- Tier 12: Interactive String Tracer & Path Tracer ----------
+  let p12 = 0, f12 = 0;
+  const ok12 = (cond, name, extra) => { if (cond) p12++; else { f12++; console.log("  \u2717 " + name + (extra ? "  (" + extra + ")" : "")); } };
+
+  // 1. Accepting string
+  const tr1 = A.traceString(N_min, M_min, "ab");
+  ok12(tr1.dfaAccepted === true && tr1.nfaAccepted === true && tr1.equivalent === true, "Traces accepting string correctly on both NFA and DFA");
+
+  // 2. Rejecting string
+  const tr2 = A.traceString(N_min, M_min, "a");
+  ok12(tr2.dfaAccepted === false && tr2.nfaAccepted === false && tr2.equivalent === true, "Traces rejecting string correctly on both NFA and DFA");
+
+  // 3. Empty string ε
+  const tr3 = A.traceString(N_min, M_min, "ε");
+  ok12(tr3.chars.length === 0 && tr3.equivalent === true, "Handles empty string ε properly");
+
+  // 4. Dead state path detection
+  const tr4 = A.traceString(N_min, M_min, "c");
+  ok12(tr4.dfaAccepted === false && tr4.dfaPath.some(p => p.isDead), "Detects dead/trap state transitions in path");
+
+  const tier12 = f12 === 0;
+  console.log(`Tier 12 \u2014 interactive string simulator & path tracer: ${p12}/${p12 + f12} pass${tier12 ? " \u2713" : " \u2717"}`);
+
+  // ---------- Tier 13: Academic Export Formats (LaTeX TikZ, Graphviz DOT, JFLAP .jff) ----------
+  let p13 = 0, f13 = 0;
+  const ok13 = (cond, name, extra) => { if (cond) p13++; else { f13++; console.log("  \u2717 " + name + (extra ? "  (" + extra + ")" : "")); } };
+
+  const tikz = A.dfaToTikz(N_min, M_min);
+  ok13(tikz.includes("\\begin{tikzpicture}") && tikz.includes("\\node[state") && tikz.includes("\\end{tikzpicture}"), "Generates valid LaTeX TikZ automaton");
+
+  const dot = A.dfaToDot(N_min, M_min);
+  ok13(dot.includes("digraph DFA") && dot.includes("rankdir=LR") && dot.includes("doublecircle"), "Generates valid Graphviz DOT automaton");
+
+  const jff = A.dfaToJFF(N_min, M_min);
+  ok13(jff.includes("<structure>") && jff.includes("<type>fa</type>") && jff.includes("<state id=") && jff.includes("<transition>"), "Generates valid JFLAP 7.0 .jff XML format");
+
+  const tier13 = f13 === 0;
+  console.log(`Tier 13 \u2014 academic exports (LaTeX TikZ, Graphviz DOT, JFLAP XML): ${p13}/${p13 + f13} pass${tier13 ? " \u2713" : " \u2717"}`);
+
+  const allPass = tier1 && tier2 && tier3 && tier4 && tier5 && tier6 && tier7 && tier8 && tier9 && tier10 && tier11 && tier12 && tier13;
   console.log(allPass
-    ? "\nALL CHECKS PASSED \u2014 10/10 test tiers passed: conversion, question builder, canvas editor, ε-elimination, minute step simulation, edge cases, invariants, and live HTTP API verified."
+    ? "\nALL CHECKS PASSED \u2014 13/13 test tiers passed: conversion, question builder, canvas editor, ε-elimination, minute step simulation, edge cases, invariants, live HTTP API, DFA minimization, string tracer, and academic exports verified."
     : "\nSOME CHECKS FAILED.");
   if (!allPass) process.exit(1);
 }

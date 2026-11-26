@@ -31,6 +31,7 @@ async function api(req, res, url) {
   if (p === "/api/convert" && method === "POST") {
     const b = await readBody(req), N = A.parse(b.src), M = A.build(N);
     const elim = N.hasEps ? A.buildEpsElimination(N) : null;
+    const min = A.minimizeDFA(N, M);
     return send(res, 200, {
       states: M.D.map((d, i) => ({ id: "D" + i, set: d.set, final: d.fin, start: i === 0 })),
       transitions: M.trans.map(t => ({ from: "D" + t.f, symbol: t.c, to: "D" + t.t })),
@@ -43,8 +44,26 @@ async function api(req, res, url) {
         finals: elim.NE.finals,
         text: A.toText(elim.NE),
         steps: elim.steps.length
-      } : null
+      } : null,
+      minimization: min ? {
+        originalCount: min.originalStateCount,
+        minCount: min.minStateCount,
+        wasReduced: min.wasReduced,
+        reductionPercent: min.reductionPercent,
+        blocks: min.blocks,
+        steps: min.steps.length
+      } : null,
+      exports: {
+        dot: A.dfaToDot(N, M),
+        tikz: A.dfaToTikz(N, M),
+        jff: A.dfaToJFF(N, M)
+      }
     });
+  }
+  if (p === "/api/trace" && method === "POST") {
+    const b = await readBody(req), N = A.parse(b.src), M = A.build(N);
+    const tr = A.traceString(N, M, b.word !== undefined ? b.word : "");
+    return send(res, 200, tr);
   }
   return send(res, 404, { error: "Unknown endpoint " + p });
 }

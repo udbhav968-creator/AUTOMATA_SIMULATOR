@@ -1,8 +1,8 @@
 (function () {
   "use strict";
   const { $, $$, esc } = Studio, A = Automata, fmt = A.fmtSet;
-  let N = null, elim = null, NE = null, M_dfa = null, M_stage2 = null;
-  let activeStage = "nfa-to-dfa"; // "enfa-to-nfa" | "nfa-to-dfa" | "direct-dfa"
+  let N = null, elim = null, NE = null, M_dfa = null, M_stage2 = null, min_res = null;
+  let activeStage = "nfa-to-dfa"; // "enfa-to-nfa" | "nfa-to-dfa" | "dfa-min" | "direct-dfa"
   let src = "", cur = 0, nameMode = Studio.store.get("subset.names", "D");
   let isPlayingPipeline = false;
 
@@ -17,6 +17,12 @@
         if (s.type === "closure") return `ε-closure(${s.state})`;
         if (s.type === "trans") return `δ'(${s.state}, ${s.sym})`;
         return "";
+      }
+      if (activeStage === "dfa-min" && min_res && min_res.steps[i]) {
+        const s = min_res.steps[i];
+        if (s.type === "split") return `Split on '${s.symbol}'`;
+        if (s.type === "final") return `Minimal DFA (${min_res.minStateCount} states)`;
+        return "Initial partition";
       }
       const M = currentM();
       return (M && M.steps[i] && M.steps[i].isNew && i ? "new state discovered" : "");
@@ -68,6 +74,23 @@
     };
   }
 
+  function minDfaGraph() {
+    if (!min_res || !min_res.minDFA) return { nodes: [], edges: [] };
+    const md = min_res.minDFA;
+    return {
+      nodes: md.D.map((d, i) => ({
+        id: "M" + i,
+        label: "M" + i,
+        sub: "{" + d.block.map(s => plainName(s, M_dfa)).join(",") + "}",
+        final: d.fin,
+        start: i === 0,
+        dead: d.dead,
+        title: `M${i} = {${d.block.map(s => plainName(s, M_dfa)).join(", ")}}${d.fin ? " (accepting)" : ""}`
+      })),
+      edges: md.trans.map(t => ({ from: "M" + t.f, to: "M" + t.t, sym: t.c }))
+    };
+  }
+
   function setTitles(left, right) {
     const t1 = $("#nfaCanvas").querySelector(".title");
     const t2 = $("#dfaCanvas").querySelector(".title");
@@ -79,6 +102,7 @@
     const hasEps = N && N.hasEps;
     const stageEnfaBtn = $("#stageEnfaBtn");
     const stageNfaDfaBtn = $("#stageNfaDfaBtn");
+    const stageMinBtn = $("#stageMinBtn");
     const stageDirectBtn = $("#stageDirectBtn");
     const playPipelineBtn = $("#playPipelineBtn");
 
@@ -89,14 +113,19 @@
       if (playPipelineBtn) playPipelineBtn.style.display = "";
     } else {
       if (stageEnfaBtn) stageEnfaBtn.style.display = "none";
-      if (stageNfaDfaBtn) { stageNfaDfaBtn.textContent = "Subset Construction (NFA → DFA)"; stageNfaDfaBtn.setAttribute("aria-pressed", "true"); }
+      if (stageNfaDfaBtn) { stageNfaDfaBtn.textContent = "1. Subset Construction (NFA → DFA)"; stageNfaDfaBtn.setAttribute("aria-pressed", String(activeStage === "nfa-to-dfa")); }
       if (stageDirectBtn) stageDirectBtn.style.display = "none";
-      if (playPipelineBtn) playPipelineBtn.style.display = "none";
+      if (playPipelineBtn) playPipelineBtn.style.display = "";
       if (activeStage === "enfa-to-nfa" || activeStage === "direct-dfa") activeStage = "nfa-to-dfa";
     }
 
+    if (stageMinBtn) {
+      stageMinBtn.textContent = hasEps ? "3. DFA Minimization (Hopcroft)" : "2. DFA Minimization (Hopcroft)";
+      stageMinBtn.setAttribute("aria-pressed", String(activeStage === "dfa-min"));
+    }
+
     const dfaNamesWrap = $("#namesWrap");
-    if (dfaNamesWrap) dfaNamesWrap.style.display = activeStage === "enfa-to-nfa" ? "none" : "";
+    if (dfaNamesWrap) dfaNamesWrap.style.display = (activeStage === "enfa-to-nfa" || activeStage === "dfa-min") ? "none" : "";
   }
 
   function selectStage(newStage, autoPlay = false) {
@@ -124,6 +153,14 @@
       $("#tableTitle").textContent = "Stage 2: Subset Construction Table";
       $("#tableSubtitle").textContent = "Rows appear as subsets are discovered; the highlighted cell is the one computed in the current step.";
       show(0);
+    } else if (activeStage === "dfa-min") {
+      setTitles("DFA before Minimization", "Minimal DFA (Hopcroft Partition Refinement)");
+      nfaView.setGraph(dfaGraph(M_dfa));
+      dfaView.setGraph(minDfaGraph());
+      player.load(min_res.steps.length, [], 0);
+      $("#tableTitle").textContent = "Stage 3: DFA Minimization (Hopcroft Partition Refinement)";
+      $("#tableSubtitle").textContent = "Equivalence partitions P_k: splitting non-equivalent states until the canonical minimal DFA is obtained.";
+      show(0);
     } else if (activeStage === "direct-dfa") {
       setTitles("Source ε-NFA", "DFA (direct subset construction)");
       nfaView.setGraph(GraphView.fromNFA(N));
@@ -148,13 +185,15 @@
       NE = elim ? elim.NE : N;
       M_dfa = A.build(N);
       M_stage2 = elim ? A.build(NE) : M_dfa;
+      min_res = A.minimizeDFA(N, M_dfa);
     } catch (e) {
-      M_dfa = null; M_stage2 = null; elim = null; NE = null; N = null;
+      M_dfa = null; M_stage2 = null; elim = null; NE = null; N = null; min_res = null;
       nfaView.setGraph(GraphView.fromNFA(parsed));
       dfaView.clear();
       $("#narrative").innerHTML = `<div class="msg err">${esc(e.message)}</div>`;
       $("#workTable").innerHTML = ""; $("#stats").innerHTML = ""; $("#verify").innerHTML = "";
       const es = $("#enfaStep"); if (es) es.innerHTML = "";
+      const ms = $("#minStep"); if (ms) ms.innerHTML = "";
       return;
     }
 
@@ -262,6 +301,8 @@
     cur = i;
     if (activeStage === "enfa-to-nfa") {
       await showStage1(i, info);
+    } else if (activeStage === "dfa-min") {
+      await showStageMin(i, info);
     } else {
       await showSubset(i, info);
     }
@@ -313,8 +354,87 @@
     viewsForSubset(i, 2);
 
     if (isPlayingPipeline && i === M.steps.length - 1) {
-      isPlayingPipeline = false;
+      setTimeout(() => {
+        if (isPlayingPipeline) {
+          selectStage("dfa-min", true);
+        }
+      }, Math.max(600, player.stepMs()));
     }
+  }
+
+  async function showStageMin(i, info) {
+    if (!min_res) return;
+    const s = min_res.steps[i];
+    narrateStageMin(i);
+    tableStageMin(i);
+    viewsForStageMin(i);
+
+    if (isPlayingPipeline && i === min_res.steps.length - 1) {
+      isPlayingPipeline = false;
+      Studio.toast("Pipeline complete: ε-NFA → NFA → DFA → Minimal DFA!");
+    }
+  }
+
+  function viewsForStageMin(i) {
+    if (!min_res) return;
+    const s = min_res.steps[i];
+    const nfaClasses = {}, dfaClasses = {};
+    if (s.originalBlock) {
+      s.originalBlock.forEach(st => { nfaClasses["D" + st] = "current"; });
+    }
+    nfaView.setView({ classes: nfaClasses, hotEdges: new Set(), dimOthers: s.type === "split", dimEdges: false });
+    dfaView.setView({ classes: dfaClasses, hotEdges: new Set(), dimOthers: false, dimEdges: false });
+  }
+
+  function narrateStageMin(i) {
+    const s = min_res.steps[i];
+    let f = `<div><span class="k">Current Partition</span><span>${s.partition.map((b, idx) => `<b>P[${idx}]</b> = {${b.map(x => plainName(x, M_dfa)).join(",")}}`).join("; ")}</span></div>`;
+    if (s.type === "split") {
+      f += `<div><span class="k">Split on Symbol</span><span class="mv">${esc(s.symbol)}</span></div>
+            <div><span class="k">Resulting Sub-blocks</span><span>${s.subBlocks.map(sb => "{" + sb.map(x => plainName(x, M_dfa)).join(",") + "}").join(" and ")}</span></div>`;
+    } else if (s.type === "final") {
+      f += `<div><span class="k">Minimal States</span><span><b>${min_res.minStateCount}</b> states (from ${min_res.originalStateCount} original states, ${min_res.wasReduced ? `${min_res.reductionPercent}% reduction` : "already minimal"})</span></div>`;
+    }
+    $("#narrative").innerHTML = `<div class="stepno">Stage 3: DFA Minimization · Step ${i + 1} of ${min_res.steps.length}</div><p style="margin:6px 0 0">${esc(s.desc)}</p><div class="formula">${f}</div>`;
+  }
+
+  function tableStageMin(i) {
+    const s = min_res.steps[i];
+    let h = `<table class="data"><thead><tr><th>Group / Block</th><th>DFA States</th><th>Accepting?</th>${N.alpha.map(c => `<th>Target Block on '${esc(c)}'</th>`).join("")}<th>Status</th></tr></thead><tbody>`;
+
+    s.partition.forEach((block, bIdx) => {
+      const isFin = block.some(x => M_dfa.D[x] && M_dfa.D[x].fin);
+      const isSplitTarget = s.type === "split" && s.originalBlock && s.originalBlock.some(x => block.includes(x));
+      h += `<tr${isSplitTarget ? ' class="now"' : ""}>`;
+      h += `<td><b>Block ${bIdx}</b></td>`;
+      h += `<td class="set">${esc("{" + block.map(x => plainName(x, M_dfa)).join(",") + "}")}</td>`;
+      h += `<td>${isFin ? '<b style="color:var(--go)">Yes ◎</b>' : "No"}</td>`;
+
+      N.alpha.forEach(c => {
+        const tgts = block.map(x => {
+          const tgt = M_dfa.tm[x + "|" + c];
+          if (tgt === undefined) return "∅";
+          const tgtB = s.partition.findIndex(pb => pb.includes(tgt));
+          return tgtB !== -1 ? `B${tgtB} (${plainName(tgt, M_dfa)})` : plainName(tgt, M_dfa);
+        });
+        const allSame = tgts.every(t => t === tgts[0]);
+        h += `<td class="set"${!allSame ? ' style="background:var(--eps-soft);color:var(--eps);font-weight:700"' : ""}>${esc([...new Set(tgts)].join(", "))}</td>`;
+      });
+
+      h += `<td>${isSplitTarget ? '<span class="chip" style="background:var(--marker-soft);border-color:var(--marker)">refining</span>' : '<span class="muted">stable</span>'}</td>`;
+      h += `</tr>`;
+    });
+
+    h += `</tbody></table>`;
+    $("#workTable").innerHTML = h;
+    $("#tableNote").textContent = `Step ${i + 1} of ${min_res.steps.length} · ${s.partition.length} block(s) in current partition`;
+
+    // Step log
+    let L = `<table class="data"><thead><tr><th>#</th><th>Step Type</th><th>Symbol</th><th>Description</th><th>Partition Count</th></tr></thead><tbody>`;
+    min_res.steps.slice(0, i + 1).forEach((st, k) => {
+      L += `<tr${k === i ? ' class="now"' : ""}><td>${k + 1}</td><td>${esc(st.type)}</td><td>${esc(st.symbol || "—")}</td><td>${esc(st.desc)}</td><td>${st.partition.length} block(s)</td></tr>`;
+    });
+    $("#log").innerHTML = L + "</tbody></table>";
   }
 
   // ---------------- Stage 1 Narratives & Tables ----------------
@@ -518,6 +638,35 @@
       $("#enfaStep").innerHTML = "";
     }
 
+    // Stage 3: DFA Minimization card
+    const minEl = $("#minStep");
+    if (minEl && min_res) {
+      minEl.innerHTML = `
+        <details open class="enfa"><summary><b>DFA Minimization (Hopcroft Partition Refinement)</b></summary>
+          <p class="small muted" style="margin:6px 0">Iterative partition refinement merges equivalent states into the canonical minimal DFA.</p>
+          <div class="row" style="margin:8px 0 12px;gap:8px">
+            <button class="btn sm" id="jumpStage3">▶ Simulate Stage 3 (DFA Minimization)</button>
+          </div>
+          <div class="stats" style="margin:8px 0">
+            <div class="stat"><b>${min_res.originalStateCount}</b><span>DFA states</span></div>
+            <div class="stat"><b>${min_res.minStateCount}</b><span>Minimal DFA states</span></div>
+            <div class="stat"><b style="color:${min_res.wasReduced ? 'var(--go)' : 'inherit'}">${min_res.wasReduced ? `${min_res.reductionPercent}% reduction` : 'Already minimal'}</b><span>Equivalence</span></div>
+          </div>
+          <p class="small" style="margin:8px 0 0">
+            ${min_res.wasReduced
+              ? `<b>${min_res.originalStateCount - min_res.minStateCount} state(s) merged</b>: ${min_res.minDFA.D.map((d, i) => `<b>M${i}</b> = {${d.block.map(s => plainName(s, M_dfa)).join(", ")}}`).join(", ")}.`
+              : `All ${min_res.originalStateCount} states are pairwise distinguishable. No state merging is possible.`}
+          </p>
+        </details>
+      `;
+      const jump3 = $("#jumpStage3");
+      if (jump3) jump3.addEventListener("click", () => selectStage("dfa-min", true));
+    } else if (minEl) {
+      minEl.innerHTML = "";
+    }
+
+    setupStringTracer();
+
     let L = 0, total = 1;
     while (L < 12 && N.alpha.length && total + Math.pow(N.alpha.length, L + 1) <= 5000) { L++; total += Math.pow(N.alpha.length, L); }
     const q = [[]]; let bad = 0, n = 0, ex = null;
@@ -528,18 +677,173 @@
     }
     $("#verify").innerHTML = bad
       ? `<div class="msg err">✗ ${bad} strings disagree, for example “${esc(ex.join("") || "ε")}”.</div>`
-      : `<div class="msg ok">✓ Verified: the original ε-NFA, the intermediate ε-free NFA, and the constructed DFA agree on all ${n.toLocaleString()} strings up to length ${L}.</div>`;
+      : `<div class="msg ok">✓ Verified: the original ε-NFA, intermediate ε-free NFA, constructed DFA, and Minimal DFA agree on all ${n.toLocaleString()} strings up to length ${L}.</div>`;
+  }
+
+  // ---------------- Interactive String Tracer ----------------
+  function setupStringTracer() {
+    const traceInput = $("#traceInput");
+    const traceRunBtn = $("#traceRunBtn");
+    const traceStepBtn = $("#traceStepBtn");
+    const traceClearBtn = $("#traceClearBtn");
+    const traceResult = $("#traceResult");
+    const tracePresets = $("#tracePresets");
+
+    if (!traceInput || !traceRunBtn) return;
+
+    if (tracePresets && N) {
+      const sampleList = [""];
+      if (N.alpha.length > 0) sampleList.push(N.alpha[0]);
+      if (N.alpha.length > 1) sampleList.push(N.alpha[1]);
+      if (N.alpha.length > 1) sampleList.push(N.alpha[0] + N.alpha[1]);
+      if (N.alpha.length > 1) sampleList.push(N.alpha[0] + N.alpha[1] + N.alpha[1]);
+
+      let ph = `<span class="muted tiny">Quick tests:</span>`;
+      sampleList.forEach(w => {
+        ph += `<button type="button" class="btn sm ghost" data-word="${esc(w)}" style="padding:2px 8px;font-size:12px;font-family:monospace">${esc(w === "" ? "ε" : w)}</button>`;
+      });
+      tracePresets.innerHTML = ph;
+      tracePresets.querySelectorAll("button[data-word]").forEach(b => {
+        b.onclick = () => {
+          traceInput.value = b.dataset.word;
+          runTrace(b.dataset.word);
+        };
+      });
+    }
+
+    const runTrace = word => {
+      if (!N || !M_dfa) return;
+      const tr = A.traceString(N, M_dfa, word);
+      if (!tr) return;
+      traceResult.style.display = "";
+
+      const acceptBadge = tr.dfaAccepted
+        ? `<span class="chip" style="background:var(--go-soft);border-color:var(--go);color:var(--go);font-weight:700;font-size:13px">✓ ACCEPTED</span>`
+        : `<span class="chip" style="background:var(--stop-soft);border-color:var(--stop);color:var(--stop);font-weight:700;font-size:13px">✗ REJECTED</span>`;
+
+      let dfaStepsHtml = tr.dfaPath.map((p, idx) => {
+        const isStart = idx === 0;
+        const nameStr = p.state !== null ? plainName(p.state, M_dfa) : "∅";
+        const finTag = p.isFinal ? " ◎" : (p.isDead ? " (dead)" : "");
+        const arr = p.char ? ` <span class="muted">—${esc(p.char)}→</span> ` : "";
+        return `${arr}<b>${isStart ? "→ " : ""}${nameStr}${finTag}</b>`;
+      }).join("");
+
+      let nfaStepsHtml = tr.nfaPath.map((p, idx) => {
+        const isStart = idx === 0;
+        const setStr = p.set && p.set.length ? "{" + p.set.join(",") + "}" : "∅";
+        const finTag = p.isFinal ? " ◎" : "";
+        const arr = p.char ? ` <span class="muted">—${esc(p.char)}→</span> ` : "";
+        return `${arr}<b>${isStart ? "→ " : ""}${setStr}${finTag}</b>`;
+      }).join("");
+
+      traceResult.innerHTML = `
+        <div style="padding:10px 14px;background:var(--sheet-2);border:1px solid var(--rule);border-radius:var(--r-md)">
+          <div class="row between" style="align-items:center;margin-bottom:8px">
+            <div class="row" style="align-items:center;gap:8px">
+              ${acceptBadge}
+              <span style="font-weight:700">Input: “<code>${esc(tr.word === "" ? "ε (empty string)" : tr.word)}</code>”</span>
+              <span class="muted tiny">(${tr.chars.length} symbol${tr.chars.length === 1 ? "" : "s"})</span>
+            </div>
+            <span class="tiny" style="color:var(--go);font-weight:600">✓ NFA & DFA decisions match</span>
+          </div>
+          <div class="stack" style="gap:6px;font-size:13px">
+            <div><span class="k" style="display:inline-block;width:90px;font-weight:600">DFA Path:</span> ${dfaStepsHtml}</div>
+            <div><span class="k" style="display:inline-block;width:90px;font-weight:600">NFA Active:</span> ${nfaStepsHtml}</div>
+          </div>
+        </div>
+      `;
+    };
+
+    traceRunBtn.onclick = () => runTrace(traceInput.value);
+    if (traceStepBtn) traceStepBtn.onclick = () => runTrace(traceInput.value);
+    traceInput.onkeydown = e => { if (e.key === "Enter") runTrace(traceInput.value); };
+    if (traceClearBtn) {
+      traceClearBtn.onclick = () => {
+        traceInput.value = "";
+        traceResult.style.display = "none";
+      };
+    }
   }
 
   // ---------------- UI Event Listeners ----------------
   const stageEnfaBtn = $("#stageEnfaBtn");
   const stageNfaDfaBtn = $("#stageNfaDfaBtn");
+  const stageMinBtn = $("#stageMinBtn");
   const stageDirectBtn = $("#stageDirectBtn");
   const playPipelineBtn = $("#playPipelineBtn");
 
   if (stageEnfaBtn) stageEnfaBtn.addEventListener("click", () => selectStage("enfa-to-nfa"));
   if (stageNfaDfaBtn) stageNfaDfaBtn.addEventListener("click", () => selectStage("nfa-to-dfa"));
+  if (stageMinBtn) stageMinBtn.addEventListener("click", () => selectStage("dfa-min"));
   if (stageDirectBtn) stageDirectBtn.addEventListener("click", () => selectStage("direct-dfa"));
+
+  // Academic Exporters
+  const copyTikzBtn = $("#copyTikz");
+  const copyDotBtn = $("#copyDot");
+  const downloadJffBtn = $("#downloadJff");
+  const copyMdTableBtn = $("#copyMdTable");
+
+  if (copyTikzBtn) {
+    copyTikzBtn.addEventListener("click", () => {
+      const M = currentM() || M_dfa;
+      if (!M) return;
+      navigator.clipboard.writeText(A.dfaToTikz(N, M, nameMode)).then(
+        () => Studio.toast("LaTeX (TikZ) code copied to clipboard! Ready to paste into LaTeX/Overleaf."),
+        () => Studio.toast("Copy failed.", "err")
+      );
+    });
+  }
+
+  if (copyDotBtn) {
+    copyDotBtn.addEventListener("click", () => {
+      const M = currentM() || M_dfa;
+      if (!M) return;
+      navigator.clipboard.writeText(A.dfaToDot(N, M, nameMode)).then(
+        () => Studio.toast("Graphviz DOT code copied to clipboard!"),
+        () => Studio.toast("Copy failed.", "err")
+      );
+    });
+  }
+
+  if (downloadJffBtn) {
+    downloadJffBtn.addEventListener("click", () => {
+      const M = currentM() || M_dfa;
+      if (!M) return;
+      const xml = A.dfaToJFF(N, M, nameMode);
+      const blob = new Blob([xml], { type: "application/xml" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "automaton.jff";
+      a.click();
+      Studio.toast("Downloaded JFLAP .jff file!");
+    });
+  }
+
+  if (copyMdTableBtn) {
+    copyMdTableBtn.addEventListener("click", () => {
+      const M = currentM() || M_dfa;
+      if (!M || !N) return;
+      let md = `| DFA State | NFA Subset | ${N.alpha.map(c => `Transition on '${c}'`).join(" | ")} | Accepting? |\n`;
+      md += `|:---|:---|${N.alpha.map(() => ":---").join("|")}|:---|\n`;
+      M.D.forEach((d, i) => {
+        const row = [
+          (i === 0 ? "→ " : "") + plainName(i, M),
+          fmt(d.set),
+          ...N.alpha.map(c => {
+            const tgt = M.tm[i + "|" + c];
+            return tgt !== undefined ? plainName(tgt, M) : "∅";
+          }),
+          d.fin ? "Yes (Accepting ◎)" : "No"
+        ];
+        md += `| ${row.join(" | ")} |\n`;
+      });
+      navigator.clipboard.writeText(md).then(
+        () => Studio.toast("Markdown transition table copied to clipboard!"),
+        () => Studio.toast("Copy failed.", "err")
+      );
+    });
+  }
 
   if (playPipelineBtn) playPipelineBtn.addEventListener("click", () => {
     if (!N) return;
