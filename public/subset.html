@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="assets/app.css?v=2.4">
+<link rel="stylesheet" href="assets/app.css?v=2.5">
 </head>
 <body>
 <main class="page" id="main">
@@ -45,6 +45,18 @@
         <div class="row" style="gap:6px">
           <button class="btn sm primary" id="playPipelineBtn" title="Simulate entire conversion pipeline from ε-NFA to ε-free NFA to DFA">▶ Play Full Pipeline</button>
         </div>
+      </div>
+
+      <!-- Edge Case & Invariant Inspector Panel -->
+      <div id="edgeScanner" class="panel" style="margin-bottom:10px;padding:9px 12px;background:var(--sheet-2);border:1px solid var(--rule);border-radius:var(--r-md);display:none">
+        <div class="row between" style="align-items:center;cursor:pointer" id="edgeScannerToggle">
+          <div class="row small" style="align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-weight:700;display:flex;align-items:center;gap:4px">⚡ Edge & Invariant Scan:</span>
+            <div id="edgeBadges" class="row small" style="gap:6px;flex-wrap:wrap"></div>
+          </div>
+          <span class="small muted" id="edgeScannerChevron" style="white-space:nowrap;user-select:none">▼ Details</span>
+        </div>
+        <div id="edgeDetails" style="margin-top:8px;display:none;font-size:13px;line-height:1.55;border-top:1px solid var(--rule);padding-top:8px"></div>
       </div>
 
       <div class="row between" style="margin-bottom:10px">
@@ -128,13 +140,13 @@
     </div>
   </section>
 </main>
-<script src="automata.js?v=2.4"></script>
-<script src="extract.js?v=2.4"></script>
-<script src="assets/shell.js?v=2.4"></script>
-<script src="assets/graph.js?v=2.4"></script>
-<script src="assets/player.js?v=2.4"></script>
-<script src="assets/canvas-editor.js?v=2.4"></script>
-<script src="assets/editor.js?v=2.4"></script>
-<script src="js/subset.js?v=2.4"></script>
+<script src="automata.js?v=2.5"></script>
+<script src="extract.js?v=2.5"></script>
+<script src="assets/shell.js?v=2.5"></script>
+<script src="assets/graph.js?v=2.5"></script>
+<script src="assets/player.js?v=2.5"></script>
+<script src="assets/canvas-editor.js?v=2.5"></script>
+<script src="assets/editor.js?v=2.5"></script>
+<script src="js/subset.js?v=2.5"></script>
 </body>
 </html>

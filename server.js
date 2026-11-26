@@ -39,6 +39,7 @@ async function api(req, res, url) {
       dfaText: A.dfaToText(N, M),
       warnings: N.warn,
       hasEps: N.hasEps,
+      edgeCases: A.analyzeEdgeCases(N, M, min),
       elimination: elim ? {
         states: elim.NE.states,
         finals: elim.NE.finals,

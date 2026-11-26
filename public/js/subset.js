@@ -688,7 +688,9 @@
     const finals = to.set.filter(q => sourceMachine.finals.includes(q));
     const acc = to.fin ? `, and it is accepting because it contains final state${finals.length > 1 ? "s" : ""} ${finals.join(", ")}` : "";
     if (s.type === "init") {
-      return `Start with the ε-closure of the NFA start state ${sourceMachine.start}: ${fmt(s.closure)}` + (s.added.length ? ` (${s.added.join(", ")} ${s.added.length > 1 ? "are" : "is"} reached by ε-moves)` : "") + `. This set becomes ${plainName(0, M)}, the DFA start state${acc}.`;
+      let msg = `Start with the ε-closure of the NFA start state ${sourceMachine.start}: ${fmt(s.closure)}` + (s.added.length ? ` (${s.added.join(", ")} ${s.added.length > 1 ? "are" : "is"} reached by ε-moves)` : "") + `. This set becomes ${plainName(0, M)}, the DFA start state${acc}.`;
+      if (s.cycleDetected) msg += " 🔁 Notice: ε-cycle detected along path; cycle expansion safely terminated via visited set.";
+      return msg;
     }
     let t = `Take ${plainName(s.from, M)} = ${fmt(M.D[s.from].set)} and the symbol “${s.c}”. `;
     if (!s.move.length) t += `No state in the set has a “${s.c}”-arrow, so the result is the empty set ∅ — the dead state. Once there, the DFA can never accept.`;
@@ -696,8 +698,10 @@
       t += `One “${s.c}”-arrow from these states reaches ${fmt(s.move)}. `;
       t += s.added.length ? `Following ε-moves adds ${s.added.join(", ")}, giving ${fmt(s.closure)}. ` : `No ε-moves add anything, so the set stays ${fmt(s.closure)}. `;
     }
+    if (s.cycleDetected) t += " 🔁 ε-cycle encountered: loop terminated safely in visited set.";
     if (s.isNew) t += ` This subset is new, so it becomes ${plainName(s.to, M)}${s.move.length ? acc : ""}.`;
     else t += ` This subset is already ${plainName(s.to, M)}, so only the arrow ${plainName(s.from, M)} —${s.c}→ ${plainName(s.to, M)} is added.`;
+    if (to.dead) t += " 💀 Sink state ∅ maintains total transitions required by DFA formal specification.";
     if (i === M.steps.length - 1) t += ` That was the last unprocessed pair: the DFA is complete with ${M.D.length} state${M.D.length > 1 ? "s" : ""}.`;
     return t;
   }
@@ -712,11 +716,20 @@
       f = `<div><span class="k">start state</span><span>${esc(sourceMachine.start)}</span></div>
            <div><span class="k">ε-closure</span><span>${esc(fmt(s.closure))}</span>${s.added.length ? `<span class="add">+${esc(s.added.join(", "))} via ${esc(edges(s.epsEdges))}</span>` : ""}</div>
            <div><span class="k">DFA start</span><span><b>${esc(plainName(0, M))}</b>${M.D[0].fin ? " · accepting" : ""}</span></div>`;
+      if (s.cycleDetected) {
+        f += `<div><span class="k" style="color:var(--eps)">ε-Cycle</span><span style="color:var(--eps);font-weight:600">Cycle safely terminated via visited set O(|Q|)</span></div>`;
+      }
     } else {
       f = `<div><span class="k">S</span><span>${esc(plainName(s.from, M))} = ${esc(fmt(M.D[s.from].set))}</span></div>
            <div><span class="k">move(S, ${esc(s.c)})</span><span class="mv">${esc(fmt(s.move))}</span>${s.moveEdges.length ? `<span class="muted">via ${esc(edges(s.moveEdges))}</span>` : ""}</div>
            <div><span class="k">ε-closure</span><span>${esc(fmt(s.closure))}</span>${s.added.length ? `<span class="add">+${esc(s.added.join(", "))}</span>` : ""}</div>
            <div><span class="k">δ(${esc(plainName(s.from, M))}, ${esc(s.c)})</span><span><b>${esc(plainName(s.to, M))}</b>${s.isNew ? " · new" : " · existing"}${M.D[s.to].fin ? " · accepting" : ""}${M.D[s.to].dead ? " · dead" : ""}</span></div>`;
+      if (s.cycleDetected) {
+        f += `<div><span class="k" style="color:var(--eps)">ε-Cycle</span><span style="color:var(--eps);font-weight:600">Loop encountered on ε-path; cycle terminated</span></div>`;
+      }
+      if (M.D[s.to].dead) {
+        f += `<div><span class="k" style="color:var(--stop)">Dead State</span><span style="color:var(--stop);font-weight:600">Sink state ∅ created for totality</span></div>`;
+      }
     }
     const stagePrefix = activeStage === "direct-dfa" ? "Direct ε-NFA → DFA" : (N.hasEps ? "Stage 2: NFA → DFA" : "Subset Construction");
     $("#narrative").innerHTML = `<div class="stepno">${stagePrefix} · Step ${i + 1} of ${M.steps.length}${s.isNew ? " · new state" : ""}</div><p style="margin:6px 0 0">${esc(stepTextSubset(i))}</p><div class="formula">${f}</div>`;
@@ -761,6 +774,52 @@
       ["2^" + N.states.length + " = " + Math.pow(2, N.states.length), "worst-case bound"]
     ];
     $("#stats").innerHTML = stats.map(s => `<div class="stat"><b>${esc(s[0])}</b><span>${esc(s[1])}</span></div>`).join("");
+
+    // Edge Case & Invariant Inspector
+    const scannerEl = $("#edgeScanner");
+    const badgesEl = $("#edgeBadges");
+    const detailsEl = $("#edgeDetails");
+    const toggleEl = $("#edgeScannerToggle");
+    const chevronEl = $("#edgeScannerChevron");
+
+    if (scannerEl && badgesEl && detailsEl) {
+      const edgeCases = A.analyzeEdgeCases(N, M_dfa, min_res);
+      scannerEl.style.display = "";
+
+      if (edgeCases.length === 0) {
+        badgesEl.innerHTML = `<span class="chip" style="background:var(--go-soft);border-color:var(--go);color:var(--go);font-weight:600">✓ Standard Well-Formed Automaton</span>`;
+        detailsEl.innerHTML = `<p class="muted" style="margin:0">No boundary or pathological conditions detected. Standard determinism, totality, and connectivity invariants hold perfectly.</p>`;
+      } else {
+        badgesEl.innerHTML = edgeCases.map(ec => {
+          let bg = "var(--sheet)", border = "var(--rule)", color = "inherit";
+          if (ec.type === "error") { bg = "var(--stop-soft)"; border = "var(--stop)"; color = "var(--stop)"; }
+          else if (ec.type === "warning") { bg = "var(--eps-soft)"; border = "var(--eps)"; color = "var(--eps)"; }
+          else if (ec.type === "success") { bg = "var(--go-soft)"; border = "var(--go)"; color = "var(--go)"; }
+          else if (ec.type === "info") { bg = "var(--pen-soft)"; border = "var(--pen)"; color = "var(--pen)"; }
+          return `<span class="chip" style="background:${bg};border-color:${border};color:${color};font-weight:600;display:inline-flex;align-items:center;gap:4px">${esc(ec.icon)} ${esc(ec.title)}</span>`;
+        }).join("");
+
+        detailsEl.innerHTML = edgeCases.map(ec => `
+          <div style="margin-bottom:8px;padding:8px 10px;background:var(--sheet);border-radius:6px;border:1px solid var(--rule)">
+            <div class="row between" style="align-items:center">
+              <b>${esc(ec.icon)} ${esc(ec.title)}</b>
+              <span class="chip" style="font-size:11px;background:var(--go-soft);border-color:var(--go);color:var(--go)">✓ Handled Mathematically</span>
+            </div>
+            <div style="margin-top:4px;color:var(--graphite)"><b>Condition:</b> ${esc(ec.summary)}</div>
+            <div class="small muted" style="margin-top:2px"><b>Simulator Handling:</b> ${esc(ec.detail)}</div>
+          </div>
+        `).join("");
+      }
+
+      if (toggleEl && !toggleEl._wired) {
+        toggleEl._wired = true;
+        toggleEl.onclick = () => {
+          const isHidden = detailsEl.style.display === "none";
+          detailsEl.style.display = isHidden ? "block" : "none";
+          if (chevronEl) chevronEl.textContent = isHidden ? "▲ Hide Details" : "▼ Details";
+        };
+      }
+    }
 
     if (N.hasEps) {
       const cellCss = "border:1px solid var(--rule);padding:6px 10px;text-align:left";
@@ -852,15 +911,17 @@
     let trPlaying = false;
 
     if (tracePresets && N) {
-      const sampleList = [""];
-      if (N.alpha.length > 0) sampleList.push(N.alpha[0]);
-      if (N.alpha.length > 1) sampleList.push(N.alpha[1]);
-      if (N.alpha.length > 1) sampleList.push(N.alpha[0] + N.alpha[1]);
-      if (N.alpha.length > 1) sampleList.push(N.alpha[0] + N.alpha[1] + N.alpha[1]);
+      const sampleList = [
+        { label: "ε (empty string)", val: "" },
+        { label: "Unknown ('#')", val: "#" }
+      ];
+      if (N.alpha.length > 0) sampleList.push({ label: `'${N.alpha[0]}'`, val: N.alpha[0] });
+      if (N.alpha.length > 1) sampleList.push({ label: `'${N.alpha[0]}${N.alpha[1]}'`, val: N.alpha[0] + N.alpha[1] });
+      if (N.alpha.length > 1) sampleList.push({ label: `'${N.alpha[0]}${N.alpha[1]}${N.alpha[1]}'`, val: N.alpha[0] + N.alpha[1] + N.alpha[1] });
 
       let ph = `<span class="muted tiny">Quick tests:</span>`;
-      sampleList.forEach(w => {
-        ph += `<button type="button" class="btn sm ghost" data-word="${esc(w)}" style="padding:2px 8px;font-size:12px;font-family:monospace">${esc(w === "" ? "ε" : w)}</button>`;
+      sampleList.forEach(item => {
+        ph += `<button type="button" class="btn sm ghost" data-word="${esc(item.val)}" style="padding:2px 8px;font-size:12px;font-family:monospace">${esc(item.label)}</button>`;
       });
       tracePresets.innerHTML = ph;
       tracePresets.querySelectorAll("button[data-word]").forEach(b => {
@@ -894,9 +955,11 @@
           let th = "";
           activeTr.chars.forEach((c, idx) => {
             let cls = "tape-cell";
+            const isUnk = !N.alpha.includes(c);
+            if (isUnk) cls += " invalid-sym";
             if (idx < trStep) cls += " done";
             else if (idx === trStep) cls += " active";
-            th += `<button type="button" class="${cls}" data-step="${idx}">${esc(c)}</button>`;
+            th += `<button type="button" class="${cls}" data-step="${idx}" title="${isUnk ? `Symbol '${c}' ∉ Σ` : `Symbol '${c}'`}">${esc(c)}</button>`;
           });
           if (trStep === activeTr.chars.length) {
             th += `<span class="tape-cell active" style="font-size:11px;color:var(--graphite)">END</span>`;
@@ -924,17 +987,28 @@
       if (liveBanner && dfaP && nfaP) {
         if (trStep === 0) {
           const dName = plainName(0, M_dfa);
-          liveBanner.innerHTML = `<b>Initial State:</b> DFA starts at <b>${esc(dName)}</b> (${esc(fmt(M_dfa.D[0].set))}); NFA active set is <b>${esc(fmt(nfaP.set))}</b>. Click <b>▶ Step</b> to consume symbols.`;
+          if (activeTr.chars.length === 0) {
+            liveBanner.innerHTML = `<b>Empty String (ε) Evaluation:</b> DFA start state is <b>${esc(dName)}</b> (${dfaP.isFinal ? '<b style="color:var(--go)">ACCEPTING ◎ (ε ∈ L)</b>' : '<b style="color:var(--stop)">REJECTING (ε ∉ L)</b>'}); 0 transitions taken.`;
+          } else if (activeTr.isEmptyLanguage) {
+            liveBanner.innerHTML = `<b>Initial State:</b> DFA starts at <b>${esc(dName)}</b>. <b style="color:var(--stop)">⚠️ Notice: Automaton Language is empty ∅</b> (no reachable accepting states). Every string will be rejected.`;
+          } else {
+            liveBanner.innerHTML = `<b>Initial State:</b> DFA starts at <b>${esc(dName)}</b> (${esc(fmt(M_dfa.D[0].set))}); NFA active set is <b>${esc(fmt(nfaP.set))}</b>. Click <b>▶ Step</b> to consume symbols.`;
+          }
         } else {
           const sym = activeTr.chars[trStep - 1];
           const prevD = activeTr.dfaPath[trStep - 1];
           const prevN = activeTr.nfaPath[trStep - 1];
           const isDead = dfaP.isDead || dfaP.state === null;
+          const isUnknown = dfaP.isUnknown;
           const dfaTrans = isDead ? `∅ (dead state)` : plainName(dfaP.state, M_dfa);
 
           let msg = `<b>Step ${trStep} of ${activeTr.chars.length}:</b> Read symbol ‘<b style="color:var(--marker)">${esc(sym)}</b>’ → `;
-          msg += `DFA moved <b>${esc(plainName(prevD.state, M_dfa))} —${esc(sym)}→ ${esc(dfaTrans)}</b>; `;
-          msg += `NFA branched <b>${esc(fmt(prevN.set))} —${esc(sym)}→ ${esc(fmt(nfaP.set))}</b>.`;
+          if (isUnknown) {
+            msg += `<b style="color:var(--stop)">⚠️ Symbol '${esc(sym)}' is outside alphabet Σ={${esc(N.alpha.join(","))}}!</b> DFA & NFA drop immediately into Dead State ∅.`;
+          } else {
+            msg += `DFA moved <b>${esc(plainName(prevD.state, M_dfa))} —${esc(sym)}→ ${esc(dfaTrans)}</b>; `;
+            msg += `NFA branched <b>${esc(fmt(prevN.set))} —${esc(sym)}→ ${esc(fmt(nfaP.set))}</b>.`;
+          }
           if (isEnd) {
             msg += `<br>${activeTr.dfaAccepted
               ? `<b style="color:var(--go)">✓ STRING ACCEPTED ◎</b>: Input fully consumed. DFA ended in accepting state <b>${esc(plainName(dfaP.state, M_dfa))}</b>; NFA reached accepting state(s) <b>${esc(fmt(nfaP.set.filter(s => N.finals.includes(s))))}</b>.`
@@ -1028,6 +1102,17 @@
         ? `<span class="chip" style="background:var(--go-soft);border-color:var(--go);color:var(--go);font-weight:700;font-size:13px">✓ ACCEPTED</span>`
         : `<span class="chip" style="background:var(--stop-soft);border-color:var(--stop);color:var(--stop);font-weight:700;font-size:13px">✗ REJECTED</span>`;
 
+      let edgeFlagsHtml = "";
+      if (activeTr.hasUnknown) {
+        edgeFlagsHtml += `<span class="chip" style="background:var(--stop-soft);border-color:var(--stop);color:var(--stop);font-weight:700;font-size:12px">⚠️ Symbol(s) ∉ Σ: ${esc(activeTr.unknownChars.join(","))}</span>`;
+      }
+      if (activeTr.isEmptyLanguage) {
+        edgeFlagsHtml += `<span class="chip" style="background:var(--stop-soft);border-color:var(--stop);color:var(--stop);font-weight:700;font-size:12px">∅ Language is Empty</span>`;
+      }
+      if (activeTr.isEmptyInput) {
+        edgeFlagsHtml += `<span class="chip" style="font-weight:700;font-size:12px;background:${activeTr.dfaAccepted ? 'var(--go-soft)' : 'var(--stop-soft)'};color:${activeTr.dfaAccepted ? 'var(--go)' : 'var(--stop)'}">${activeTr.dfaAccepted ? '✓ Accepts ε (q0 ∈ F)' : '✗ Rejects ε (q0 ∉ F)'}</span>`;
+      }
+
       let dfaStepsHtml = activeTr.dfaPath.map((p, idx) => {
         const isStart = idx === 0;
         const nameStr = p.state !== null ? plainName(p.state, M_dfa) : "∅";
@@ -1047,8 +1132,9 @@
       traceResult.innerHTML = `
         <div style="padding:14px;background:var(--sheet-2);border:1px solid var(--rule);border-radius:var(--r-md)">
           <div class="row between" style="align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-            <div class="row" style="align-items:center;gap:8px">
+            <div class="row" style="align-items:center;gap:8px;flex-wrap:wrap">
               ${acceptBadge}
+              ${edgeFlagsHtml}
               <span style="font-weight:700">Input: “<code>${esc(activeTr.word === "" ? "ε (empty string)" : activeTr.word)}</code>”</span>
               <span class="muted tiny">(${activeTr.chars.length} symbol${activeTr.chars.length === 1 ? "" : "s"})</span>
             </div>

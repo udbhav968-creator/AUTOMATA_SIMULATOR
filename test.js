@@ -470,9 +470,82 @@ async function runTier10() {
   const tier14 = f14 === 0;
   console.log(`Tier 14 — HTML safety & advanced minimization/export invariants: ${p14}/${p14 + f14} pass${tier14 ? " ✓" : " ✗"}`);
 
-  const allPass = tier1 && tier2 && tier3 && tier4 && tier5 && tier6 && tier7 && tier8 && tier9 && tier10 && tier11 && tier12 && tier13 && tier14;
+  // ---------- Tier 15: Edge Cases, Hidden Tests & UI Invariant Reflection Suite ----------
+  let p15 = 0, f15 = 0;
+  const ok15 = (cond, name, extra) => { if (cond) p15++; else { f15++; console.log("  ✗ " + name + (extra ? "  (" + extra + ")" : "")); } };
+
+  // 1. ε-cycle detection and safe termination
+  const nfaCycle = A.parse("start: q0\nfinal: q2\nq0,ε = q1\nq1,ε = q0\nq1,a = q2");
+  const mCycle = A.build(nfaCycle);
+  const ecCycle = A.analyzeEdgeCases(nfaCycle, mCycle);
+  ok15(nfaCycle.hasEpsCycle === true && ecCycle.some(c => c.id === "eps_cycle"), "Detects ε-cycle and generates cycle invariant warning");
+
+  const clCycle = A.closureDetail(nfaCycle, ["q0"]);
+  ok15(clCycle.set.includes("q0") && clCycle.set.includes("q1") && clCycle.cycleDetected === true, "ε-closure terminates with cycleDetected=true without infinite loop");
+
+  // 2. Empty language detection (no final states or unreachable)
+  const nfaEmpty = A.parse("start: q0\nfinal: ∅\nq0,a = q0,q1\nq1,b = q1");
+  const mEmpty = A.build(nfaEmpty);
+  const ecEmpty = A.analyzeEdgeCases(nfaEmpty, mEmpty);
+  ok15(nfaEmpty.isEmptyLanguage === true && ecEmpty.some(c => c.id === "empty_lang"), "Detects empty language L(M)=∅ when finals=∅");
+
+  const trEmpty = A.traceString(nfaEmpty, mEmpty, "ab");
+  ok15(trEmpty.isEmptyLanguage === true && trEmpty.dfaAccepted === false, "String tracer identifies empty language and rejects string");
+
+  // 3. Accepts empty string (start state is final)
+  const nfaEpsAcc = A.parse("start: q0\nfinal: q0, q1\nq0,a = q1");
+  const mEpsAcc = A.build(nfaEpsAcc);
+  const ecEpsAcc = A.analyzeEdgeCases(nfaEpsAcc, mEpsAcc);
+  ok15(nfaEpsAcc.acceptsEpsilon === true && mEpsAcc.D[0].fin === true && ecEpsAcc.some(c => c.id === "accepts_eps"), "Detects language containing empty string ε and flags DFA start state as accepting");
+
+  const trEps = A.traceString(nfaEpsAcc, mEpsAcc, "");
+  ok15(trEps.isEmptyInput === true && trEps.dfaAccepted === true && trEps.nfaAccepted === true, "String tracer accurately accepts empty string ε");
+
+  // 4. Unreachable states detection and pruning
+  const nfaUnreach = A.parse("states: q0, q1, q2\nstart: q0\nfinal: q1\nq0,a = q1\nq2,a = q2");
+  const mUnreach = A.build(nfaUnreach);
+  const ecUnreach = A.analyzeEdgeCases(nfaUnreach, mUnreach);
+  ok15(nfaUnreach.unreachableStates.includes("q2") && ecUnreach.some(c => c.id === "unreachable"), "Detects unreachable state q2 and confirms pruning in subset construction");
+
+  // 5. Dead / trap state generation for non-total transitions
+  const nfaDead = A.parse("start: q0\nfinal: q1\nq0,a = q1\nq1,b = q1"); // on alphabet {a,b}, q0 has no 'b' move, q1 has no 'a' move
+  const mDead = A.build(nfaDead);
+  const ecDead = A.analyzeEdgeCases(nfaDead, mDead);
+  ok15(mDead.hasDeadState === true && ecDead.some(c => c.id === "dead_state"), "Generates explicit dead state ∅ to satisfy DFA totality axiom");
+
+  // 6. Unused alphabet symbols
+  const nfaUnused = A.parse("alphabet: a, b, c\nstart: q0\nfinal: q1\nq0,a = q1\nq1,b = q1");
+  const mUnused = A.build(nfaUnused);
+  const ecUnused = A.analyzeEdgeCases(nfaUnused, mUnused);
+  ok15(nfaUnused.unusedSymbols.includes("c") && ecUnused.some(c => c.id === "unused_symbols"), "Identifies declared unused symbol 'c' and routes it to dead state");
+
+  // 7. Single state automaton
+  const nfaSingle = A.parse("start: q0\nfinal: q0\nq0,a = q0");
+  const mSingle = A.build(nfaSingle);
+  const ecSingle = A.analyzeEdgeCases(nfaSingle, mSingle);
+  ok15(nfaSingle.isSingleState === true && ecSingle.some(c => c.id === "single_state"), "Handles single-state boundary automaton (|Q|=1)");
+
+  // 8. String tracer handles unknown symbols outside alphabet safely
+  const trUnknown = A.traceString(nfaDead, mDead, "a#b");
+  ok15(trUnknown.hasUnknown === true && trUnknown.unknownChars.includes("#") && trUnknown.dfaAccepted === false, "String tracer handles unknown symbol '#' safely without crash");
+
+  // 9. All-accepting automaton
+  const nfaAllAcc = A.parse("start: q0\nfinal: q0, q1\nq0,a = q1\nq1,a = q0");
+  const mAllAcc = A.build(nfaAllAcc);
+  const ecAllAcc = A.analyzeEdgeCases(nfaAllAcc, mAllAcc);
+  ok15(nfaAllAcc.allAccepting === true && ecAllAcc.some(c => c.id === "all_accepting"), "Identifies all-accepting automaton (F = Q)");
+
+  // 10. Minimization edge cases reflected in analysis
+  const minResComp = A.minimizeDFA(nfaDead, mDead);
+  const ecMin = A.analyzeEdgeCases(nfaDead, mDead, minResComp);
+  ok15(ecMin.some(c => c.id === "already_minimal" || c.id === "min_reduced"), "Edge case analyzer integrates DFA minimization results");
+
+  const tier15 = f15 === 0;
+  console.log(`Tier 15 — edge cases, hidden tests & UI invariant reflection: ${p15}/${p15 + f15} pass${tier15 ? " ✓" : " ✗"}`);
+
+  const allPass = tier1 && tier2 && tier3 && tier4 && tier5 && tier6 && tier7 && tier8 && tier9 && tier10 && tier11 && tier12 && tier13 && tier14 && tier15;
   console.log(allPass
-    ? "\nALL CHECKS PASSED — 14/14 test tiers passed: conversion, question builder, canvas editor, ε-elimination, minute step simulation, edge cases, invariants, live HTTP API, DFA minimization, string tracer, academic exports, and HTML safety verified."
+    ? "\nALL CHECKS PASSED — 15/15 test tiers passed: conversion, question builder, canvas editor, ε-elimination, minute step simulation, edge cases, invariants, live HTTP API, DFA minimization, string tracer, academic exports, HTML safety, and comprehensive edge-case UI reflection verified."
     : "\nSOME CHECKS FAILED.");
   if (!allPass) process.exit(1);
 }

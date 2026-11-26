@@ -8,9 +8,16 @@
     { name: "ε-NFA for a*b*c*", src: "# ε-moves let the machine skip a block\nstart: q0\nfinal: q2\nq0,a = q0\nq0,ε = q1\nq1,b = q1\nq1,ε = q2\nq2,c = q2" },
     { name: "Contains aa or bb", src: "start: s\nfinal: f\ns,a = s,x\ns,b = s,y\nx,a = f\ny,b = f\nf,a = f\nf,b = f" },
     { name: "Third symbol from the end is a", src: "# Exponential blow-up: the DFA needs 2^3 = 8 states\nstart: q0\nfinal: q3\nq0,a = q0,q1\nq0,b = q0\nq1,a = q2\nq1,b = q2\nq2,a = q3\nq2,b = q3" },
-    { name: "ε-cycle (q0 ⇄ q1)", src: "start: q0\nfinal: q2\nq0,ε = q1\nq1,ε = q0\nq1,a = q2\nq2,b = q0" },
     { name: "Binary: ends in 01 or 10", src: "alphabet: 0,1\nstart: p\nfinal: r,u\np,0 = p,q\np,1 = p,t\nq,1 = r\nt,0 = u" },
-    { name: "Dragon book (a|b)*abb ε-NFA", src: "# Thompson-style ε-NFA (Aho, Lam, Sethi, Ullman Fig. 3.34)\nstart: 0\nfinal: 10\n0,ε = 1,7\n1,ε = 2,4\n2,a = 3\n4,b = 5\n3,ε = 6\n5,ε = 6\n6,ε = 1,7\n7,a = 8\n8,b = 9\n9,b = 10" }
+    { name: "Dragon book (a|b)*abb ε-NFA", src: "# Thompson-style ε-NFA (Aho, Lam, Sethi, Ullman Fig. 3.34)\nstart: 0\nfinal: 10\n0,ε = 1,7\n1,ε = 2,4\n2,a = 3\n4,b = 5\n3,ε = 6\n5,ε = 6\n6,ε = 1,7\n7,a = 8\n8,b = 9\n9,b = 10" },
+    { name: "⚠️ Edge Case: ε-cycle (q0 ⇄ q1)", src: "# Edge Case: ε-cycle (termination guaranteed in O(|Q|))\nstart: q0\nfinal: q2\nq0,ε = q1\nq1,ε = q0\nq1,a = q2\nq2,b = q0" },
+    { name: "⚠️ Edge Case: Empty Language ∅ (No Finals)", src: "# Edge Case: Empty language L(M) = ∅ (no final states)\nstart: q0\nfinal: ∅\nq0,a = q0,q1\nq0,b = q0\nq1,b = q1" },
+    { name: "⚠️ Edge Case: Start State Final (Accepts ε)", src: "# Edge Case: Start state is accepting (ε ∈ L)\nstart: q0\nfinal: q0,q2\nq0,a = q1\nq1,b = q2" },
+    { name: "⚠️ Edge Case: Unreachable States", src: "# Edge Case: State q3 is disconnected and pruned during subset construction\nstates: q0, q1, q2, q3\nstart: q0\nfinal: q2\nq0,a = q1\nq1,b = q2\nq3,a = q3\nq3,b = q2" },
+    { name: "⚠️ Edge Case: Missing Transitions (Dead State ∅)", src: "# Edge Case: Non-total transitions generate explicit sink state ∅\nstart: q0\nfinal: q1\nq0,a = q1" },
+    { name: "⚠️ Edge Case: Unused Alphabet Symbol (c ∉ δ)", src: "# Edge Case: Symbol 'c' declared in alphabet but unused in transitions\nalphabet: a, b, c\nstart: q0\nfinal: q1\nq0,a = q0,q1\nq1,b = q1" },
+    { name: "⚠️ Edge Case: Single-State Automaton", src: "# Edge Case: Boundary 1-state machine (|Q| = 1)\nstart: q0\nfinal: q0\nq0,a = q0" },
+    { name: "⚠️ Edge Case: All States Accepting (F = Q)", src: "# Edge Case: Every state is final\nstart: q0\nfinal: q0, q1\nq0,a = q1\nq1,b = q0" }
   ];
   const DFA_EXAMPLES = [
     { name: "Textbook: 6 states → 3", src: "# Minimises to {A,B} {C,D,E} {F}\nstates: A,B,C,D,E,F\nalphabet: 0,1\nstart: A\nfinal: C,D,E\nA,0 = B\nA,1 = C\nB,0 = A\nB,1 = D\nC,0 = E\nC,1 = F\nD,0 = E\nD,1 = F\nE,0 = E\nE,1 = F\nF,0 = F\nF,1 = F" },

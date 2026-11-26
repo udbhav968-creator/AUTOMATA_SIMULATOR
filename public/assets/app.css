@@ -481,6 +481,19 @@ dialog h2 { margin: 0 0 8px; font-size: 19px; }
   font-style: italic;
   color: var(--eps);
 }
+.tape-cell.invalid-sym {
+  border-color: var(--stop);
+  background: var(--stop-soft);
+  color: var(--stop);
+}
+
+/* Edge Case Inspector styling */
+.edge-scanner {
+  border-left: 3px solid var(--pen);
+}
+.edge-scanner b {
+  color: var(--ink);
+}
 
 /* Minimization partition block classes */
 .g-node.block-0 circle.body { fill: var(--pen-soft); stroke: var(--pen); stroke-width: 3.5; }
