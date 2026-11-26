@@ -1398,12 +1398,20 @@
   const downloadJffBtn = $("#downloadJff");
   const copyMdTableBtn = $("#copyMdTable");
 
+  const getExportM = () => {
+    if (activeStage === "dfa-min" && min_res && min_res.minDFA) {
+      return min_res.minDFA;
+    }
+    return currentM() || M_dfa;
+  };
+
   if (copyTikzBtn) {
     copyTikzBtn.addEventListener("click", () => {
-      const M = currentM() || M_dfa;
+      const M = getExportM();
       if (!M) return;
+      const isMin = activeStage === "dfa-min" && min_res && min_res.minDFA;
       navigator.clipboard.writeText(A.dfaToTikz(N, M, nameMode)).then(
-        () => Studio.toast("LaTeX (TikZ) code copied to clipboard! Ready to paste into LaTeX/Overleaf."),
+        () => Studio.toast(isMin ? "Minimal DFA LaTeX (TikZ) code copied to clipboard!" : "LaTeX (TikZ) code copied to clipboard! Ready to paste into LaTeX/Overleaf."),
         () => Studio.toast("Copy failed.", "err")
       );
     });
@@ -1411,10 +1419,11 @@
 
   if (copyDotBtn) {
     copyDotBtn.addEventListener("click", () => {
-      const M = currentM() || M_dfa;
+      const M = getExportM();
       if (!M) return;
+      const isMin = activeStage === "dfa-min" && min_res && min_res.minDFA;
       navigator.clipboard.writeText(A.dfaToDot(N, M, nameMode)).then(
-        () => Studio.toast("Graphviz DOT code copied to clipboard!"),
+        () => Studio.toast(isMin ? "Minimal DFA Graphviz DOT code copied to clipboard!" : "Graphviz DOT code copied to clipboard!"),
         () => Studio.toast("Copy failed.", "err")
       );
     });
@@ -1422,28 +1431,31 @@
 
   if (downloadJffBtn) {
     downloadJffBtn.addEventListener("click", () => {
-      const M = currentM() || M_dfa;
+      const M = getExportM();
       if (!M) return;
+      const isMin = activeStage === "dfa-min" && min_res && min_res.minDFA;
       const xml = A.dfaToJFF(N, M, nameMode);
       const blob = new Blob([xml], { type: "application/xml" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = "automaton.jff";
+      a.download = isMin ? "minimal_dfa.jff" : "automaton.jff";
       a.click();
-      Studio.toast("Downloaded JFLAP .jff file!");
+      Studio.toast(isMin ? "Downloaded Minimal DFA JFLAP .jff file!" : "Downloaded JFLAP .jff file!");
     });
   }
 
   if (copyMdTableBtn) {
     copyMdTableBtn.addEventListener("click", () => {
-      const M = currentM() || M_dfa;
+      const M = getExportM();
       if (!M || !N) return;
-      let md = `| DFA State | NFA Subset | ${N.alpha.map(c => `Transition on '${c}'`).join(" | ")} | Accepting? |\n`;
+      const isMin = activeStage === "dfa-min" && min_res && min_res.minDFA;
+      const titlePrefix = isMin ? "Minimal DFA" : "DFA";
+      let md = `| ${titlePrefix} State | Equivalent Subsets / Blocks | ${N.alpha.map(c => `Transition on '${c}'`).join(" | ")} | Accepting? |\n`;
       md += `|:---|:---|${N.alpha.map(() => ":---").join("|")}|:---|\n`;
       M.D.forEach((d, i) => {
         const row = [
           (i === 0 ? "→ " : "") + plainName(i, M),
-          fmt(d.set),
+          fmt(d.set || (d.block ? d.block.map(b => "D" + b) : [])),
           ...N.alpha.map(c => {
             const tgt = M.tm[i + "|" + c];
             return tgt !== undefined ? plainName(tgt, M) : "∅";
@@ -1453,7 +1465,7 @@
         md += `| ${row.join(" | ")} |\n`;
       });
       navigator.clipboard.writeText(md).then(
-        () => Studio.toast("Markdown transition table copied to clipboard!"),
+        () => Studio.toast(isMin ? "Minimal DFA Markdown transition table copied to clipboard!" : "Markdown transition table copied to clipboard!"),
         () => Studio.toast("Copy failed.", "err")
       );
     });
@@ -1520,10 +1532,11 @@
   });
 
   $("#copyDfa").addEventListener("click", () => {
-    const M = currentM();
+    const M = getExportM();
     if (!M) return;
+    const isMin = activeStage === "dfa-min" && min_res && min_res.minDFA;
     navigator.clipboard.writeText(A.dfaToText(N, M, nameMode === "letters" ? "letters" : "D")).then(
-      () => Studio.toast("DFA copied as text."),
+      () => Studio.toast(isMin ? "Minimal DFA definition copied as text." : "DFA definition copied as text."),
       () => Studio.toast("Copy failed.", "err")
     );
   });
