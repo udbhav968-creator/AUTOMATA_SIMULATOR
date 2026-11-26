@@ -131,6 +131,24 @@
     <div id="enfaStep" style="margin-top:12px"></div>
     <div id="minStep" style="margin-top:12px"></div>
     <div id="verify" style="margin-top:12px"></div>
+
+    <!-- High-Scale Cross-Verification & Stress Test Matrix -->
+    <div id="crossTestPanel" style="margin-top:14px;padding:12px 14px;background:var(--sheet-2);border:1px solid var(--rule);border-radius:var(--r-md);display:none">
+      <div class="row between" style="align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <h3 style="margin:0;display:flex;align-items:center;gap:6px">🧪 Cross-Verification & Scale Stress Matrix</h3>
+          <p class="small muted" style="margin:2px 0 0">Rigorous 4-way cross-check: <code>L(ε-NFA) ≡ L(ε-free NFA) ≡ L(DFA) ≡ L(MinDFA)</code> tested across exhaustive and randomized inputs at scale.</p>
+        </div>
+        <div class="row small" style="gap:6px;flex-wrap:wrap">
+          <span class="muted tiny">Stress test scale:</span>
+          <button type="button" class="btn sm" id="btnStress10k">⚡ 10,000 Tests</button>
+          <button type="button" class="btn sm" id="btnStress50k">⚡ 50,000 Tests</button>
+          <button type="button" class="btn sm primary" id="btnStress100k">🚀 100,000+ Tests</button>
+        </div>
+      </div>
+      <div id="crossMetrics" class="stats" style="margin-top:10px"></div>
+      <div id="crossTableWrap" style="margin-top:10px"></div>
+    </div>
     <div class="row" style="margin-top:14px;gap:8px;flex-wrap:wrap">
       <button class="btn" id="copyDfa">Copy DFA as text</button>
       <button class="btn" id="copyTikz">Copy LaTeX (TikZ)</button>

@@ -543,9 +543,48 @@ async function runTier10() {
   const tier15 = f15 === 0;
   console.log(`Tier 15 — edge cases, hidden tests & UI invariant reflection: ${p15}/${p15 + f15} pass${tier15 ? " ✓" : " ✗"}`);
 
-  const allPass = tier1 && tier2 && tier3 && tier4 && tier5 && tier6 && tier7 && tier8 && tier9 && tier10 && tier11 && tier12 && tier13 && tier14 && tier15;
+  // ---------- Tier 16: Massive Scale Fuzzing & 4-Way Cross-Verification Suite (100,000+ string tests) ----------
+  let p16 = 0, f16 = 0;
+  const ok16 = (cond, name, extra) => { if (cond) p16++; else { f16++; console.log("  ✗ " + name + (extra ? "  (" + extra + ")" : "")); } };
+
+  // 1. Cross-verification on standard NFA (ends with ab) - 25,000 tests
+  const nfaStd = A.parse("start: q0\nfinal: q2\nq0,a = q0,q1\nq0,b = q0\nq1,b = q2");
+  const mStd = A.build(nfaStd);
+  const minStd = A.minimizeDFA(nfaStd, mStd);
+  const cv1 = A.crossVerify(nfaStd, mStd, minStd, 25000);
+  ok16(cv1.totalTested === 25000 && cv1.allEquivalent && cv1.mismatches === 0, "4-way cross-verification passes 25,000 tests on standard NFA");
+
+  // 2. Cross-verification on ε-NFA (a*b*c*) - 25,000 tests
+  const nfaEpsBlock = A.parse("start: q0\nfinal: q2\nq0,a = q0\nq0,ε = q1\nq1,b = q1\nq1,ε = q2\nq2,c = q2");
+  const mEpsBlock = A.build(nfaEpsBlock);
+  const minEpsBlock = A.minimizeDFA(nfaEpsBlock, mEpsBlock);
+  const cv2 = A.crossVerify(nfaEpsBlock, mEpsBlock, minEpsBlock, 25000);
+  ok16(cv2.totalTested === 25000 && cv2.allEquivalent && cv2.mismatches === 0, "4-way cross-verification passes 25,000 tests on ε-NFA with skip blocks");
+
+  // 3. Cross-verification on ε-Cycle NFA - 25,000 tests
+  const nfaCyc = A.parse("start: q0\nfinal: q2\nq0,ε = q1\nq1,ε = q0\nq1,a = q2\nq2,b = q0");
+  const mCyc = A.build(nfaCyc);
+  const minCyc = A.minimizeDFA(nfaCyc, mCyc);
+  const cv3 = A.crossVerify(nfaCyc, mCyc, minCyc, 25000);
+  ok16(cv3.totalTested === 25000 && cv3.allEquivalent && cv3.mismatches === 0, "4-way cross-verification passes 25,000 tests on cyclic ε-NFA");
+
+  // 4. Cross-verification on Reducible DFA - 25,000 tests
+  const nfaRedDfa = A.parse("start: q0\nfinal: q2, q3, q4\nq0,0 = q1\nq0,1 = q2\nq1,0 = q0\nq1,1 = q3\nq2,0 = q4\nq2,1 = q5\nq3,0 = q4\nq3,1 = q5\nq4,0 = q4\nq4,1 = q5\nq5,0 = q5\nq5,1 = q5");
+  const mRedDfa = A.build(nfaRedDfa);
+  const minRedDfa = A.minimizeDFA(nfaRedDfa, mRedDfa);
+  const cv4 = A.crossVerify(nfaRedDfa, mRedDfa, minRedDfa, 25000);
+  ok16(cv4.totalTested === 25000 && cv4.allEquivalent && cv4.mismatches === 0, "4-way cross-verification passes 25,000 tests on reducible DFA");
+
+  // 5. Total stress test volume verification (100,000 tests combined)
+  const totalScaleTests = cv1.totalTested + cv2.totalTested + cv3.totalTested + cv4.totalTested;
+  ok16(totalScaleTests >= 100000 && (cv1.throughput > 10000), `Massive fuzzing throughput validated: ${totalScaleTests.toLocaleString()} strings tested at high speed`);
+
+  const tier16 = f16 === 0;
+  console.log(`Tier 16 — massive scale fuzzing & 4-way cross-verification (100,000+ tests): ${p16}/${p16 + f16} pass${tier16 ? " ✓" : " ✗"}`);
+
+  const allPass = tier1 && tier2 && tier3 && tier4 && tier5 && tier6 && tier7 && tier8 && tier9 && tier10 && tier11 && tier12 && tier13 && tier14 && tier15 && tier16;
   console.log(allPass
-    ? "\nALL CHECKS PASSED — 15/15 test tiers passed: conversion, question builder, canvas editor, ε-elimination, minute step simulation, edge cases, invariants, live HTTP API, DFA minimization, string tracer, academic exports, HTML safety, and comprehensive edge-case UI reflection verified."
+    ? "\nALL CHECKS PASSED — 16/16 test tiers passed: conversion, question builder, canvas editor, ε-elimination, minute step simulation, edge cases, invariants, live HTTP API, DFA minimization, string tracer, academic exports, HTML safety, edge-case UI reflection, and massive scale cross-verification (100,000+ tests) verified."
     : "\nSOME CHECKS FAILED.");
   if (!allPass) process.exit(1);
 }
