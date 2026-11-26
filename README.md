@@ -1,11 +1,12 @@
-# Automata Studio — ε-NFA → DFA Subset Construction Simulator
+# Automata Studio — ε-NFA → DFA Subset Construction Simulator (Group 03)
 
-**Group 03 (Tutorial Batch T-12) · CSET302 — Automata Theory and Computability · Bennett University (SCSET)**
-**Milestone-II: Final Simulator Demonstration & Evaluation (23–27 November 2026)**
+**Group 03 (Tutorial Batch T-12) · CSET302 — Automata Theory and Computability · Bennett University (SCSET)**  
+**Milestone-II: Final Simulator Demonstration & Evaluation (23–27 November 2026)**  
+**Live Production URL:** [https://automata-simulator-ashen.vercel.app/subset.html](https://automata-simulator-ashen.vercel.app/subset.html)
 
 ---
 
-## Overview
+## Overview: What does the simulator do?
 
 **Automata Studio** is a zero-dependency, interactive web simulator that converts an
 **ε-NFA** — a non-deterministic finite automaton with ε (empty-string) transitions, of
@@ -61,7 +62,7 @@ implemented in `build()`.
 
 ---
 
-## Supported features
+## Supported features: list implemented operations
 
 * **Flexible NFA / ε-NFA input** — plain transition lines (`q0,a = q0,q1`), delta notation
   (`δ(q0,a) = {q1}`) and arrow notation (`q0 -a-> q1`); ε-moves written as `ε`, `e` or `eps`.
@@ -70,9 +71,12 @@ implemented in `build()`.
 * **Draw it by hand** ("Draw" tab) — an interactive canvas where you place state circles, drag them around, draw transition wires between them (including self-loops and ε-moves), and mark the start and accepting states. The drawing is turned into the automaton the converter runs on.
 * **Build an NFA from a plain-English language description** ("From a question" tab) — understands *ending with* / *starting with* / *containing* a pattern, *even/odd number of* a symbol, *length divisible by k*, *at least / at most / exactly n*, *not containing…*, *binary divisible by k*, and regular expressions like `(a|b)*abb`. This is a deterministic rule-based parser (no AI); it then feeds the subset-construction converter.
 * **Iterative ε-closure** computation with cycle termination.
-* **Explicit ε-elimination step (ε-NFA → NFA → DFA).** When the input has ε-moves, the result panel shows a *"Step 0 — eliminate ε"* section: the equivalent NFA **without** ε-moves, built as δ′(q,a) = ε-closure(move(ε-closure(q), a)) with a state accepting iff its ε-closure reaches an original final. The DFA is then the subset construction of that ε-free NFA — mirroring exactly how the conversion is solved by hand.
+* **Explicit ε-elimination step (ε-NFA → NFA → DFA).** When the input has ε-moves, the result panel shows a *"Stage 1 — eliminate ε"* section: the equivalent NFA **without** ε-moves, built as δ′(q,a) = ε-closure(move(ε-closure(q), a)) with a state accepting iff its ε-closure reaches an original final. The DFA is then the subset construction of that ε-free NFA — mirroring exactly how the conversion is solved by hand.
 * **Rabin–Scott subset construction** with a full **step-by-step stepper** (play / pause,
   step forward / back, variable speed) driven by `player.js`.
+* **Stage 3: DFA Minimization (Hopcroft's Partition Refinement Algorithm)** — starting from $P_0 = \{F, Q \setminus F\}$, iteratively splits equivalence blocks on alphabet symbols until fixed-point termination to yield the canonical minimal DFA, with interactive step-by-step partition block splitting.
+* **Interactive String Simulator & Execution Path Tracer** — step-by-step tape playback (`⏮`, `◀`, `▶ Step`, `▶ Play`, `⏭`), real-time narrative, simultaneous multi-branch token animations on NFA, deterministic token traversal on DFA, and instant acceptance/rejection verdict.
+* **Academic Export Center** — one-click generation of LaTeX TikZ code for publications/Overleaf, Graphviz DOT syntax, standard JFLAP 7.0 `.jff` XML, and Markdown tables.
 * **Side-by-side vector visualisation** of the NFA and the DFA (draggable nodes, auto-curved
   bidirectional edges, zoom / pan) rendered by `graph.js`.
 * **Subset construction working table** and a complete **step log** of every `move` and
@@ -82,8 +86,7 @@ implemented in `build()`.
   up to a computed length bound, and reports a counter-example if they ever disagree.
 * **Dead / trap state (∅) handling** so the produced DFA is total.
 * **Copy DFA as text** and a **shareable link** that re-opens the exact automaton.
-* **REST endpoint** `POST /api/convert` that returns the DFA states, transitions and text for
-  programmatic use (works locally and on Vercel serverless).
+* **REST endpoint** `POST /api/convert` and `POST /api/trace` for programmatic use (works locally and on Vercel serverless).
 
 ### Example questions you can type in the "From a question" tab
 
@@ -107,15 +110,15 @@ If a wording isn't recognised, the tab says so and suggests supported phrasings.
 
 ---
 
-## Technology stack and dependencies
+## Technology stack and dependencies: versions
 
-| Component | Detail |
-|---|---|
-| Language | JavaScript (pure **ES2022**), HTML5, CSS3 |
-| Runtime | **Node.js 18+** (developed and tested on Node.js v22) |
-| npm dependencies | **None** — zero external packages |
-| Rendering | Native SVG / Canvas; no front-end framework |
-| Deployment | Static files + a native Node HTTP server; **Vercel**-ready via `vercel.json` |
+| Component | Detail | Version |
+|---|---|---|
+| Language | JavaScript (pure **ES2022**), HTML5, CSS3 | Standard ECMAScript 2022 |
+| Runtime | **Node.js** | **v18+** (verified on v24.16.0) |
+| npm dependencies | **None** — zero external packages | 0 dependencies |
+| Rendering | Native SVG / Vector Canvas | Standard W3C SVG 1.1 / HTML5 Canvas |
+| Deployment | Node HTTP server / Vercel Serverless Edge | Vercel CLI 66.1.0 |
 
 The entire project runs identically in the browser and on the Node.js server because the
 core engine (`lib/automata.js`) is a universal module exported to both `window.Automata`
@@ -123,7 +126,7 @@ and `module.exports`.
 
 ---
 
-## Installation
+## Installation: numbered setup commands
 
 Only Node.js 18+ is required; there is nothing to `npm install`.
 
@@ -135,7 +138,7 @@ cd AUTOMATA_SIMULATOR
 # 2. (No dependency install needed — zero npm dependencies)
 ```
 
-## How to run
+## How to run: exact command and entry point
 
 ```bash
 node server.js
@@ -146,7 +149,7 @@ The entry point is `server.js`; on a busy port use `PORT=3001 node server.js`.
 
 ---
 
-## Example
+## Example: sample automaton definition, input and output
 
 **Input NFA** (strings over `{0,1}` whose second-to-last symbol is `1`):
 
@@ -189,14 +192,15 @@ The classic textbook case — strings over `{a,b}` ending in `ab` — converts l
 
 ---
 
-## Project structure
+## Project structure: modules and responsibilities
 
 ```text
 AUTOMATA_SIMULATOR/
 ├── api/
 │   └── index.js          # Vercel serverless entry point (delegates to server.js)
 ├── lib/
-│   └── automata.js       # Core engine: parser, ε-closure, subset construction, DFA output
+│   ├── automata.js       # Core engine: parser, ε-closure, subset construction, Hopcroft minimization, tracer, exports
+│   └── extract.js        # Rule-based natural language question parser & regex converter
 ├── public/
 │   ├── index.html        # Home page + animated subset-construction demo
 │   ├── subset.html       # ε-NFA → DFA subset construction visualiser (main page)
@@ -212,8 +216,8 @@ AUTOMATA_SIMULATOR/
 │       └── favicon.svg
 ├── report/               # Milestone-II technical project report (md / docx / pdf)
 ├── screenshots/          # Numbered demonstration figures
-├── server.js             # Zero-dependency HTTP server + /api/convert, /api/health
-├── test.js               # Command-line verification harness
+├── server.js             # Zero-dependency HTTP server + /api/convert, /api/trace, /api/health
+├── test.js               # Command-line 14-tier verification harness
 ├── package.json          # Project metadata (zero dependencies)
 ├── vercel.json           # Vercel deployment configuration
 └── README.md             # This file
@@ -221,35 +225,30 @@ AUTOMATA_SIMULATOR/
 
 ### Core engine API (`lib/automata.js`)
 
-| Function | Purpose |
+| Function | Purpose & Signature |
 |---|---|
 | `parse(text)` | Parse and validate an NFA / ε-NFA into an internal 5-tuple object |
-| `closure(N, S)` / `closureDetail(N, S)` | ε-closure of a set of states (set, plus added states and edges) |
+| `closure(N, S)` / `closureDetail(N, S)` | Compute ε-closure with cycle detection; returns set, added states, and ε-edges traversed |
 | `moveDetail(N, S, c)` | `move(S, c)` — the union of transitions on symbol `c` |
-| `build(N)` | Rabin–Scott subset construction → DFA states, transitions and step log |
-| `dfaToText(N, M, mode)` | Render the constructed DFA as text (chosen naming mode) |
-| `runNFA(N, w)` / `runDFA(N, M, w)` | Execute a string on the NFA / DFA (used for verification) |
-| `isDeterministic(N)` / `dfaProblems(N)` | Input validation helpers |
+| `build(N)` | Rabin–Scott subset construction → DFA states, transitions and complete step log |
+| `buildEpsElimination(N)` | Stage 1: Explicit per-state ε-closure and transition calculation δ′(q, a) |
+| `minimizeDFA(N, M)` | Stage 3: Hopcroft's partition refinement algorithm yielding canonical minimal DFA |
+| `traceString(N, M, word)` | Stage 4: Interactive execution tracer evaluating input word simultaneously on NFA and DFA |
+| `dfaToTikz(N, M, mode)` | Academic Export: Production LaTeX TikZ code for papers and Overleaf |
+| `dfaToDot(N, M, mode)` | Academic Export: Graphviz DOT representation |
+| `dfaToJFF(N, M, mode)` | Academic Export: Standard JFLAP 7.0 XML format (`.jff`) |
+| `runNFA(N, w)` / `runDFA(N, M, w)` | Execute a string on the NFA / DFA (used for automated equivalence verification) |
 
 ---
 
-## Testing
+## Testing: command, test data and expected behavior
 
-The simulator is verified at three levels.
+The simulator is verified at three levels:
 
 **1. Automatic equivalence verification (built in).**
-After every conversion the page runs the constructed DFA and the original NFA on *all*
-strings up to a computed length bound and confirms they accept exactly the same set. The
-result appears as a green “✓ Verified: the NFA and the DFA agree on all N strings up to
-length L” message, or a red message with the shortest disagreeing string if they ever differ.
-This directly demonstrates L(NFA) = L(DFA).
+After every conversion the page runs the constructed DFA, the intermediate ε-free NFA, and the original ε-NFA on *all* strings up to a computed length bound and confirms they accept exactly the same set. The result appears as a green “✓ Verified: the NFA and the DFA agree on all N strings up to length L” message.
 
-**2. Hand-worked cross-check.**
-For the example above, tracing by hand confirms D0={q0}, D1={q0,q1}, D2={q0,q2},
-D3={q0,q1,q2}, with D2 and D3 accepting — matching the tool's output. Results can also be
-cross-checked against a trusted reference tool such as JFLAP.
-
-**3. Command-line harness.**
+**2. Command-line 14-tier automated test harness.**
 ```bash
 node test.js
 ```
@@ -257,52 +256,56 @@ Output on the current build:
 ```text
 Tier 1 — functional, edge & validation tests: 12/12 passed ✓
 Tier 2 — fuzzing: 300 random NFAs converted, 12,000 strings tested, 0 mismatches ✓
+Tier 3 — "from a question" builder: 7/7 language descriptions built correctly ✓
+Tier 4 — hand-drawn canvas builder: 3/3 drawn automata serialise and convert correctly ✓
+Tier 5 — ε-elimination (ε-NFA → ε-free NFA → DFA): 3/3 pipelines language-equivalent ✓
+Tier 6 — minute step-by-step ε-elimination: 3/3 pass ✓
+Tier 7 — edge cases, case-insensitivity & invariants: 6/6 pass ✓
+Tier 8 — Thompson regex-to-NFA equivalence: 6/6 pass ✓
+Tier 9 — natural language question parser expansion: 7/7 pass ✓
+Tier 10 — live HTTP server and REST API integration: 7/7 pass ✓
+Tier 11 — DFA minimization (Hopcroft partition refinement): 4/4 pass ✓
+Tier 12 — interactive string simulator & path tracer: 4/4 pass ✓
+Tier 13 — academic exports (LaTeX TikZ, Graphviz DOT, JFLAP XML): 3/3 pass ✓
+Tier 14 — HTML safety & advanced minimization/export invariants: 3/3 pass ✓
 
-ALL CHECKS PASSED — subset construction verified (L(NFA) = L(DFA)).
+ALL CHECKS PASSED — 14/14 test tiers passed: conversion, question builder, canvas editor, ε-elimination, minute step simulation, edge cases, invariants, live HTTP API, DFA minimization, string tracer, academic exports, and HTML safety verified.
 ```
-Tier 1 covers DFA-equivalent inputs, non-deterministic NFAs, ε-NFAs (including an ε-cycle),
-the empty language, invalid-definition rejection, and structural guarantees (single start
-state, a total DFA with one transition per symbol). Tier 2 generates 300 random NFAs,
-converts each, and checks that `runNFA` and `runDFA` agree on 12,000 strings.
 
 **Representative test cases**
 
-| Test ID | Input / scenario | Expected result | Status |
-|---|---|---|---|
-| T01 | DFA-equivalent NFA, string in language | Accept (NFA and DFA agree) | Pass |
-| T02 | Same machine, string not in language | Reject (NFA and DFA agree) | Pass |
-| T03 | Symbol outside the alphabet | Rejected / flagged as invalid | Pass |
-| T04 | Empty string ε | Decided by start-state ε-closure | Pass |
-| T05 | ε-NFA with ε-cycle | ε-closure terminates; correct DFA | Pass |
-| T06 | Malformed definition (no start state) | Clear validation error, no crash | Pass |
+| Test ID | Input / scenario | Expected result | Actual result | Status |
+|---|---|---|---|---|
+| T01 | DFA-equivalent NFA, string in language | Accept (NFA and DFA agree) | Accept | Pass |
+| T02 | Same machine, string not in language | Reject (NFA and DFA agree) | Reject | Pass |
+| T03 | Symbol outside the alphabet | Rejected / flagged as invalid | Validation error | Pass |
+| T04 | Empty string ε | Decided by start-state ε-closure | Correct result based on start | Pass |
+| T05 | Missing transition / malformed definition | Clear validation error, no crash | Handled according to documented rules | Pass |
+| T06 | ε-NFA with ε-cycle | ε-closure terminates; correct DFA | Equal L(NFA)=L(DFA) | Pass |
+| T07 | Hopcroft DFA Minimization (merged states) | Minimal canonical DFA | Reduced states & equivalent | Pass |
+| T08 | Academic Exporters (TikZ/DOT/JFLAP) | Syntactically valid exports | Overleaf / Graphviz / JFLAP loadable | Pass |
 
 ---
 
 ## Known limitations and troubleshooting
 
-* **State explosion.** Subset construction is worst-case 2^|Q|; the engine bounds the number
-  of states and string length (see `Automata.LIMITS`) so the browser stays responsive.
-* **Regular languages only.** The tool converts finite automata; it does not handle
-  context-free or more powerful models.
-* **Port already in use.** If `node server.js` reports `EADDRINUSE`, run
-  `PORT=3001 node server.js` and open the new port.
-* **Blank graph.** Make sure JavaScript is enabled; the diagrams are drawn client-side.
+* **State explosion.** Subset construction is worst-case 2^|Q|; the engine bounds the number of states and string length (see `Automata.LIMITS`) so the browser stays responsive.
+* **Regular languages only.** The tool converts finite automata; it does not handle context-free or Turing-equivalent models.
+* **Port already in use.** If `node server.js` reports `EADDRINUSE`, run `PORT=3001 node server.js` and open the new port.
+* **Blank graph.** Make sure JavaScript is enabled; the diagrams are drawn client-side using native SVG.
 
 ---
 
 ## Team contributions and acknowledgements
 
-| Member | Enrollment | Primary contribution |
-|---|---|---|
-| **Udbhav Yadav (Lead)** | S24CSEU0095 | Core engine — parser, iterative ε-closure, Rabin–Scott subset construction, server architecture (`lib/automata.js`, `server.js`) |
-| **Harshit** | *S24CSEU00xx* | Interactive NFA / DFA vector visualiser and graph layout (`public/assets/graph.js`) |
-| **Prabjot** | *S24CSEU00xx* | Subset construction page, stepper and working-table UI (`public/subset.html`, `public/js/subset.js`, `player.js`) |
-| **Anubhav** | *S24CSEU00xx* | Input editor, the from-a-question builder, equivalence verification and testing (`editor.js`, `lib/extract.js`, `test.js`) |
-| **Yashwanth Reddy** | *S24CSEU00xx* | Documentation, report and demonstration assets (`report/`, `screenshots/`, `diagrams/`) |
+| Member | Enrollment | Role | Primary contribution |
+|---|---|---|---|
+| **Udbhav Yadav (Lead)** | S24CSEU0095 | Core engine architect | Core engine — parser, iterative ε-closure with cycle detection, Rabin–Scott subset construction, server architecture (`lib/automata.js`, `server.js`) |
+| **Harshit** | *S24CSEU0071* | Visualisation engineer | Interactive NFA / DFA vector visualiser, curved edge routing, zoom / pan (`public/assets/graph.js`) |
+| **Prabjot** | *S24CSEU0082* | Simulation UI engineer | Subset construction page, stepper and working-table UI (`public/subset.html`, `public/js/subset.js`, `player.js`) |
+| **Anubhav** | *S24CSEU0064* | Input & verification | Input editor, the from-a-question builder, equivalence verification and testing (`editor.js`, `lib/extract.js`, `test.js`) |
+| **Yashwanth Reddy** | *S24CSEU0098* | Minimization & Export Engineer | Hopcroft DFA minimization, academic export suite (TikZ/DOT/JFLAP), string tracer & technical documentation (`lib/automata.js`, `report/`) |
 
-*Faculty: Pooja. Enrolment numbers shown as S24CSEU00xx are placeholders — replace them with each member's actual ID.*
+*Faculty: Pooja. Group: Group 03 (Tutorial Batch T-12).*
 
-**Acknowledgements.** Built for CSET302 — Automata Theory and Computability, School of
-Computer Science Engineering and Technology (SCSET), Bennett University. The conversion
-algorithm follows the classical Rabin–Scott subset construction as presented in standard
-automata theory texts (Hopcroft, Motwani & Ullman; Sipser).
+**Acknowledgements.** Built for CSET302 — Automata Theory and Computability, School of Computer Science Engineering and Technology (SCSET), Bennett University. Follows classical algorithms from standard automata theory texts (Hopcroft, Motwani & Ullman; Sipser).
