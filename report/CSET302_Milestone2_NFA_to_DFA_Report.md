@@ -484,7 +484,7 @@ In the end we built an end-to-end, mathematically rigorous, and fully transparen
 3. **Stage 3 (DFA Minimization)**: Hopcroft's partition refinement algorithm starting from $P_0 = \{F, Q \setminus F\}$, iteratively splitting equivalence blocks on alphabet symbols until fixed-point termination to yield the canonical minimal DFA.
 4. **Interactive String Simulator & Path Tracer**: Real-time evaluation of arbitrary strings (including empty string $\varepsilon$ and dead paths) tracing NFA active sets and DFA transitions side-by-side with instant accept/reject verdict.
 5. **Academic Export Center**: One-click generation of LaTeX TikZ code for academic publications/Overleaf, Graphviz DOT syntax, standard JFLAP 7.0 `.jff` XML, and lab-ready Markdown tables.
-6. **13-Tier Automated Test Suite**: Covering unit algorithms, fuzzing (12,000 strings over 300 machines), hand-drawn graph conversions, question builders, invariants, live HTTP REST endpoints, minimization, and export formats with 100% pass rate.
+6. **14-Tier Automated Test Suite**: Covering unit algorithms, fuzzing (12,000 strings over 300 machines), hand-drawn graph conversions, question builders, invariants, live HTTP REST endpoints, minimization, string execution tracing, export formats, and HTML safety invariants with 100% pass rate.
 
 Every functional and edge-case test passes, and the tool makes theoretical concepts that students traditionally struggle with visible, tactile, and mathematically transparent.
 

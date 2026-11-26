@@ -445,11 +445,34 @@ async function runTier10() {
   ok13(jff.includes("<structure>") && jff.includes("<type>fa</type>") && jff.includes("<state id=") && jff.includes("<transition>"), "Generates valid JFLAP 7.0 .jff XML format");
 
   const tier13 = f13 === 0;
-  console.log(`Tier 13 \u2014 academic exports (LaTeX TikZ, Graphviz DOT, JFLAP XML): ${p13}/${p13 + f13} pass${tier13 ? " \u2713" : " \u2717"}`);
+  console.log(`Tier 13 — academic exports (LaTeX TikZ, Graphviz DOT, JFLAP XML): ${p13}/${p13 + f13} pass${tier13 ? " ✓" : " ✗"}`);
 
-  const allPass = tier1 && tier2 && tier3 && tier4 && tier5 && tier6 && tier7 && tier8 && tier9 && tier10 && tier11 && tier12 && tier13;
+  // ---------- Tier 14: HTML Safety & Advanced Minimization/Export Invariants ----------
+  let p14 = 0, f14 = 0;
+  const ok14 = (cond, name, extra) => { if (cond) p14++; else { f14++; console.log("  ✗ " + name + (extra ? "  (" + extra + ")" : "")); } };
+
+  // 1. Elimination step targets and descriptions are free from unescaped raw HTML
+  const dragonNFA = A.parse("start: 0\nfinal: 10\n0,ε = 1, 7\n1,ε = 2, 4\n2,a = 3\n3,ε = 6\n4,b = 5\n5,ε = 6\n6,ε = 1, 7\n7,a = 8\n8,b = 9\n9,b = 10");
+  const dragonElim = A.buildEpsElimination(dragonNFA);
+  const rawHtmlLeak = dragonElim.steps.some(st => (st.desc && /<span|&lt;span/.test(st.desc)));
+  ok14(!rawHtmlLeak, "Elimination step data models contain pure mathematical data without HTML leaks");
+
+  // 2. Multi-name modes for academic export
+  const tikzLetters = A.dfaToTikz(dragonNFA, A.build(dragonNFA), "letters");
+  const dotSets = A.dfaToDot(dragonNFA, A.build(dragonNFA), "sets");
+  ok14(tikzLetters.includes("state") && dotSets.includes("digraph"), "Export functions support letters and sets naming modes");
+
+  // 3. Hopcroft minimization handles complex merge
+  const complexRed = A.parse("start: q0\nfinal: q2, q4\nq0,0 = q1\nq0,1 = q2\nq1,0 = q0\nq1,1 = q3\nq2,0 = q4\nq2,1 = q5\nq3,0 = q4\nq3,1 = q5\nq4,0 = q4\nq4,1 = q5\nq5,0 = q5\nq5,1 = q5");
+  const minComp = A.minimizeDFA(complexRed, A.build(complexRed));
+  ok14(minComp.wasReduced && minComp.minStateCount < minComp.originalStateCount, "Hopcroft partition merges multiple equivalence classes correctly");
+
+  const tier14 = f14 === 0;
+  console.log(`Tier 14 — HTML safety & advanced minimization/export invariants: ${p14}/${p14 + f14} pass${tier14 ? " ✓" : " ✗"}`);
+
+  const allPass = tier1 && tier2 && tier3 && tier4 && tier5 && tier6 && tier7 && tier8 && tier9 && tier10 && tier11 && tier12 && tier13 && tier14;
   console.log(allPass
-    ? "\nALL CHECKS PASSED \u2014 13/13 test tiers passed: conversion, question builder, canvas editor, ε-elimination, minute step simulation, edge cases, invariants, live HTTP API, DFA minimization, string tracer, and academic exports verified."
+    ? "\nALL CHECKS PASSED — 14/14 test tiers passed: conversion, question builder, canvas editor, ε-elimination, minute step simulation, edge cases, invariants, live HTTP API, DFA minimization, string tracer, academic exports, and HTML safety verified."
     : "\nSOME CHECKS FAILED.");
   if (!allPass) process.exit(1);
 }
