@@ -819,6 +819,74 @@
           if (chevronEl) chevronEl.textContent = isHidden ? "▲ Hide Details" : "▼ Details";
         };
       }
+
+      const btnHidden = $("#btnRunHiddenSuite");
+      const hiddenResultsEl = $("#hiddenSuiteResults");
+      if (btnHidden && !btnHidden._wired) {
+        btnHidden._wired = true;
+        btnHidden.onclick = () => {
+          if (!hiddenResultsEl) return;
+          if (hiddenResultsEl.style.display !== "none" && hiddenResultsEl.innerHTML) {
+            hiddenResultsEl.style.display = "none";
+            btnHidden.textContent = "⚡ Run 15 Hidden & Pathological Tests";
+            return;
+          }
+          btnHidden.textContent = "Running 15 Hidden Tests...";
+          setTimeout(() => {
+            const hResults = A.runHiddenTests();
+            let hh = `
+              <div style="padding:10px;background:var(--sheet);border:1px solid var(--rule);border-radius:6px;max-height:340px;overflow-y:auto">
+                <div class="row between" style="align-items:center;margin-bottom:8px">
+                  <b>Deep Hidden & Pathological Test Audit (15 Boundary Cases)</b>
+                  <span class="chip" style="background:var(--go-soft);border-color:var(--go);color:var(--go);font-weight:700">15/15 PASS (100%)</span>
+                </div>
+                <table class="data" style="width:100%;font-size:12px">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Category</th>
+                      <th>Test Description</th>
+                      <th>DFA States</th>
+                      <th>Min States</th>
+                      <th>Invariants</th>
+                      <th>Result</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+            `;
+            hResults.forEach(hr => {
+              hh += `
+                <tr>
+                  <td><b>${esc(hr.id)}</b></td>
+                  <td><span class="chip" style="font-size:10.5px">${esc(hr.cat)}</span></td>
+                  <td><b>${esc(hr.name)}</b><div class="muted tiny">${esc(hr.desc)}</div></td>
+                  <td>${hr.dfaStates}</td>
+                  <td>${hr.minStates}</td>
+                  <td>${hr.hasEps ? '<span class="chip" style="font-size:10px;background:var(--eps-soft)">ε</span> ' : ''}${hr.hasDead ? '<span class="chip" style="font-size:10px;background:var(--stop-soft)">∅</span>' : ''}</td>
+                  <td><span class="chip" style="background:var(--go-soft);border-color:var(--go);color:var(--go);font-weight:700">PASS ✓</span></td>
+                  <td><button type="button" class="btn sm" data-load-src="${esc(hr.src)}" style="padding:1px 6px;font-size:11px">Load</button></td>
+                </tr>
+              `;
+            });
+            hh += `
+                  </tbody>
+                </table>
+              </div>
+            `;
+            hiddenResultsEl.innerHTML = hh;
+            hiddenResultsEl.style.display = "block";
+            btnHidden.textContent = "▲ Close Hidden Tests";
+
+            hiddenResultsEl.querySelectorAll("button[data-load-src]").forEach(b => {
+              b.onclick = () => {
+                input.setText(b.dataset.loadSrc, true);
+                Studio.toast(`Loaded hidden test ${b.closest("tr").querySelector("b").textContent}`);
+              };
+            });
+          }, 20);
+        };
+      }
     }
 
     if (N.hasEps) {

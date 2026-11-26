@@ -582,9 +582,22 @@ async function runTier10() {
   const tier16 = f16 === 0;
   console.log(`Tier 16 — massive scale fuzzing & 4-way cross-verification (100,000+ tests): ${p16}/${p16 + f16} pass${tier16 ? " ✓" : " ✗"}`);
 
-  const allPass = tier1 && tier2 && tier3 && tier4 && tier5 && tier6 && tier7 && tier8 && tier9 && tier10 && tier11 && tier12 && tier13 && tier14 && tier15 && tier16;
+  // ---------- Tier 17: Deep Hidden & Pathological Test Cases Suite (15/15 cases) ----------
+  let p17 = 0, f17 = 0;
+  const ok17 = (cond, name, extra) => { if (cond) p17++; else { f17++; console.log("  ✗ " + name + (extra ? "  (" + extra + ")" : "")); } };
+
+  const hiddenResults = A.runHiddenTests();
+  ok17(hiddenResults.length === 15, "Executes exactly 15 deep hidden test cases");
+  hiddenResults.forEach(hr => {
+    ok17(hr.passed === true, `Hidden Case ${hr.id} (${hr.name}): language-equivalent and invariant-verified`, hr.error);
+  });
+
+  const tier17 = f17 === 0;
+  console.log(`Tier 17 — deep hidden & pathological test cases (15 cases): ${p17}/${p17 + f17} pass${tier17 ? " ✓" : " ✗"}`);
+
+  const allPass = tier1 && tier2 && tier3 && tier4 && tier5 && tier6 && tier7 && tier8 && tier9 && tier10 && tier11 && tier12 && tier13 && tier14 && tier15 && tier16 && tier17;
   console.log(allPass
-    ? "\nALL CHECKS PASSED — 16/16 test tiers passed: conversion, question builder, canvas editor, ε-elimination, minute step simulation, edge cases, invariants, live HTTP API, DFA minimization, string tracer, academic exports, HTML safety, edge-case UI reflection, and massive scale cross-verification (100,000+ tests) verified."
+    ? "\nALL CHECKS PASSED — 17/17 test tiers passed: conversion, question builder, canvas editor, ε-elimination, minute step simulation, edge cases, invariants, live HTTP API, DFA minimization, string tracer, academic exports, HTML safety, edge-case UI reflection, massive scale cross-verification (100,000+ tests), and deep hidden test cases verified."
     : "\nSOME CHECKS FAILED.");
   if (!allPass) process.exit(1);
 }

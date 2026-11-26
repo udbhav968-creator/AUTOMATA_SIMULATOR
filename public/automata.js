@@ -1015,6 +1015,61 @@ Result: in the ε-free NFA, add transition δ'(${q}, ${a}) = {${targets.join(", 
     };
   }
 
+  // Deep Hidden & Pathological Test Cases Suite
+  const HIDDEN_TEST_CASES = [
+    { id: "H01", cat: "ε-Cycle", name: "Self-Loop on ε (q0,ε = q0)", desc: "Immediate ε-reflexivity. Visited set check guarantees immediate O(1) cycle detection.", src: "start: q0\nfinal: q0\nq0,ε = q0\nq0,a = q0" },
+    { id: "H02", cat: "ε-Cycle", name: "3-State Transitive ε-Cycle (q0 → q1 → q2 → q0)", desc: "Transitive directed cycle. All 3 states share identical reachable closures and transitions.", src: "start: q0\nfinal: q2\nq0,ε = q1\nq1,ε = q2\nq2,ε = q0\nq2,a = q0" },
+    { id: "H03", cat: "ε-Cycle", name: "Cycle with Partial Acceptance (1 final, 2 non-final)", desc: "q2 ∈ F in cycle {q0, q1, q2}. Entire cycle must be marked accepting in ε-free NFA.", src: "start: q0\nfinal: q2\nq0,ε = q1\nq1,ε = q2\nq2,ε = q0\nq0,a = q1" },
+    { id: "H04", cat: "Unreachable", name: "Disconnected Component with ε-Cycle", desc: "Unreachable component {x1, x2} loops on ε. Powersets prune unreachable states cleanly.", src: "states: q0, q1, x1, x2\nstart: q0\nfinal: q1\nq0,a = q1\nx1,ε = x2\nx2,ε = x1" },
+    { id: "H05", cat: "Empty Lang", name: "Empty Language L(M) = ∅ (F = ∅)", desc: "No final states. Simulator collapses DFA to 1 minimal sink state M0.", src: "start: q0\nfinal: ∅\nq0,a = q0,q1\nq1,b = q1" },
+    { id: "H06", cat: "Empty Lang", name: "Empty Language L(M) = ∅ (Final Unreachable)", desc: "Final state qf defined but disconnected from q0. Minimal DFA contains 1 state.", src: "states: q0, q1, qf\nstart: q0\nfinal: qf\nq0,a = q1\nq1,b = q0" },
+    { id: "H07", cat: "Boundary", name: "Language L = {ε} (Only Empty String Accepted)", desc: "Start state is final, but all alphabet moves transition to dead state ∅.", src: "start: q0\nfinal: q0\nq0,a = q1\nq1,a = q1" },
+    { id: "H08", cat: "Boundary", name: "Universal Language L = Σ*", desc: "Accepts every string over {a,b}. Minimal DFA has exactly 1 state.", src: "start: q0\nfinal: q0\nq0,a = q0\nq0,b = q0" },
+    { id: "H09", cat: "Boundary", name: "Single-State Automaton (|Q| = 1)", desc: "Base case: isolated start state q0. Powerset and minimization base case.", src: "start: q0\nfinal: q0" },
+    { id: "H10", cat: "Minimization", name: "Multiple Dead Sinks Merged by Hopcroft", desc: "q2 and q3 are both non-accepting dead sinks. Hopcroft partition refinement merges them into 1.", src: "start: q0\nfinal: q1\nq0,a = q1\nq0,b = q2\nq0,c = q3\nq2,a = q2\nq2,b = q2\nq2,c = q2\nq3,a = q3\nq3,b = q3\nq3,c = q3" },
+    { id: "H11", cat: "Powerset Blowup", name: "Exponential Blowup: 2^3 = 8 DFA States", desc: "Third symbol from the end is 'a'. Requires exact 2^3 = 8 powerset subsets.", src: "start: q0\nfinal: q3\nq0,a = q0,q1\nq0,b = q0\nq1,a = q2\nq1,b = q2\nq2,a = q3\nq2,b = q3" },
+    { id: "H12", cat: "Robustness", name: "Out-of-Alphabet Symbol Injection (∉ Σ)", desc: "Tests symbol '#' not in {a}. Engine routes to dead state ∅ without crash.", src: "start: q0\nfinal: q1\nq0,a = q1" },
+    { id: "H13", cat: "Robustness", name: "Extreme String Length (100 Characters)", desc: "Tests 100-character input across looping transitions without call stack overflow.", src: "start: q0\nfinal: q1\nq0,a = q0,q1\nq1,b = q1" },
+    { id: "H14", cat: "Totality", name: "Unused Alphabet Symbol (c ∉ δ)", desc: "Symbol 'c' declared in alphabet but unused in transitions. Routes to dead state ∅.", src: "alphabet: a, b, c\nstart: q0\nfinal: q1\nq0,a = q1\nq1,b = q1" },
+    { id: "H15", cat: "All-Accepting", name: "All States Accepting (F = Q)", desc: "Every defined state is in F. All non-empty reachable subsets are accepting.", src: "start: q0\nfinal: q0, q1\nq0,a = q1\nq1,b = q0" }
+  ];
+
+  function runHiddenTests() {
+    return HIDDEN_TEST_CASES.map(tc => {
+      const t0 = Date.now();
+      try {
+        const N = parse(tc.src);
+        const M = build(N);
+        const min = minimizeDFA(N, M);
+        const cv = crossVerify(N, M, min, 500);
+        const dt = Date.now() - t0;
+        return {
+          id: tc.id,
+          cat: tc.cat,
+          name: tc.name,
+          desc: tc.desc,
+          src: tc.src,
+          dfaStates: M.D.length,
+          minStates: min ? min.minStateCount : M.D.length,
+          hasEps: N.hasEps,
+          hasDead: M.hasDeadState,
+          durationMs: dt,
+          passed: cv.allEquivalent && cv.mismatches === 0
+        };
+      } catch (err) {
+        return {
+          id: tc.id,
+          cat: tc.cat,
+          name: tc.name,
+          desc: tc.desc,
+          src: tc.src,
+          passed: false,
+          error: err.message
+        };
+      }
+    });
+  }
+
   // Academic Exporters: LaTeX (TikZ), Graphviz DOT, JFLAP (.jff)
   function dfaToTikz(N, M, mode) {
     if (!M || !M.D) return "% No DFA available";
@@ -1143,7 +1198,8 @@ Result: in the ε-free NFA, add transition δ'(${q}, ${a}) = {${targets.join(", 
   const API = {
     LIMITS, fmtSet, rng, parse, build, isDeterministic, dfaProblems, dfaName, dfaToText, toText,
     closure, closureDetail, moveDetail, runNFA, runDFA, generate, regexToNFA, removeEps, buildEpsElimination,
-    minimizeDFA, traceString, dfaToTikz, dfaToDot, dfaToJFF, analyzeEdgeCases, crossVerify
+    minimizeDFA, traceString, dfaToTikz, dfaToDot, dfaToJFF, analyzeEdgeCases, crossVerify,
+    HIDDEN_TEST_CASES, runHiddenTests
   };
   if (typeof module !== "undefined" && module.exports) module.exports = API;
   else root.Automata = API;
