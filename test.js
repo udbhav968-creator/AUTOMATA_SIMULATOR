@@ -162,8 +162,209 @@ for (const c of ENFA) {
 const tier5 = f5 === 0;
 console.log(`Tier 5 \u2014 ε-elimination (ε-NFA \u2192 ε-free NFA \u2192 DFA): ${p5}/${p5 + f5} pipelines language-equivalent${tier5 ? " \u2713" : " \u2717"}`);
 
-const allPass = tier1 && tier2 && tier3 && tier4 && tier5;
-console.log(allPass
-  ? "\nALL CHECKS PASSED \u2014 conversion, question builder, canvas builder and ε-elimination all verified."
-  : "\nSOME CHECKS FAILED.");
-process.exit(allPass ? 0 : 1);
+// ---------- Tier 6: detailed step-by-step ε-elimination simulation (buildEpsElimination) ----------
+let p6 = 0, f6 = 0;
+const ok6 = (cond, name, extra) => { if (cond) p6++; else { f6++; console.log("  \u2717 " + name + (extra ? "  (" + extra + ")" : "")); } };
+for (const c of ENFA) {
+  let N, elim;
+  try {
+    N = A.parse(c.src);
+    elim = A.buildEpsElimination(N);
+  } catch (e) {
+    ok6(false, c.name, "threw: " + e.message);
+    continue;
+  }
+  const hasOverview = elim.steps.some(s => s.type === "overview");
+  const hasClosures = N.states.every(q => elim.steps.some(s => s.type === "closure" && s.state === q));
+  const hasTransitions = N.states.every(q => N.alpha.every(a => elim.steps.some(s => s.type === "trans" && s.state === q && s.sym === a)));
+  const noEps = !elim.NE.hasEps && !Object.keys(elim.NE.d).some(k => k.endsWith("|\u03b5"));
+  const correctFinals = N.states.every(q => {
+    const cl = A.closure(N, [q]);
+    const reachesFin = cl.some(s => N.finals.includes(s));
+    return elim.finalNotes[q].isFinal === reachesFin;
+  });
+
+  ok6(hasOverview && hasClosures && hasTransitions && noEps && correctFinals,
+    `buildEpsElimination: ${c.name} produces complete minute step log (${elim.steps.length} steps)`);
+}
+const tier6 = f6 === 0;
+console.log(`Tier 6 \u2014 minute step-by-step ε-elimination: ${p6}/${p6 + f6} pass${tier6 ? " \u2713" : " \u2717"}`);
+
+// ---------- Tier 7: Edge cases, case-insensitivity, and structural invariants ----------
+let p7 = 0, f7 = 0;
+const ok7 = (cond, name, extra) => { if (cond) p7++; else { f7++; console.log("  \u2717 " + name + (extra ? "  (" + extra + ")" : "")); } };
+{
+  // (a) uppercase E as epsilon
+  const nE = A.parse("start: q0\nfinal: q1\nq0,E = q1\nq1,a = q1");
+  ok7(nE.hasEps && !nE.alpha.includes("E"), "parses uppercase 'E' as ε-transition");
+
+  // (b) uppercase EPS and LAMBDA as epsilon
+  const nEps = A.parse("start: q0\nfinal: q1\nq0,EPS = q1\nq1,LAMBDA = q2\nfinal: q2");
+  ok7(nEps.hasEps && !nEps.alpha.includes("EPS") && !nEps.alpha.includes("LAMBDA"), "parses uppercase 'EPS' and 'LAMBDA' as ε-transitions");
+
+  // (c) case-insensitive empty words Phi, NULL, none
+  const nEmpty = A.parse("start: q0\nfinal: q1\nq0,a = Phi\nq0,b = NULL\nq0,c = q1");
+  ok7((nEmpty.d["q0|a"] || new Set()).size === 0 && (nEmpty.d["q0|b"] || new Set()).size === 0, "parses Phi and NULL as empty set ∅");
+
+  // (d) single accepting state accepting empty string
+  const nSingle = A.parse("start: q0\nfinal: q0\nq0,a = q0");
+  const mSingle = A.build(nSingle);
+  ok7(A.runNFA(nSingle, []) && A.runDFA(nSingle, mSingle, []), "single accepting state accepts ε");
+
+  // (e) total DFA transitions invariant: exactly |D| * |alpha| transitions
+  const totalExpected = mSingle.D.length * nSingle.alpha.length;
+  let countTrans = 0;
+  for (let i = 0; i < mSingle.D.length; i++) for (const c of nSingle.alpha) if (mSingle.tm[i + "|" + c] !== undefined) countTrans++;
+  ok7(countTrans === totalExpected, "totality invariant: every DFA state has a transition for every alphabet symbol");
+
+  // (f) dead state absorption: once in dead state, all transitions loop to dead state
+  const nNeedsDead = A.parse("start: q0\nfinal: q1\nq0,a = q1\nq0,b = q0"); // q1 has no transitions
+  const mNeedsDead = A.build(nNeedsDead);
+  const deadIdx = mNeedsDead.D.findIndex(d => d.dead);
+  let deadLoops = deadIdx !== -1;
+  if (deadIdx !== -1) {
+    for (const c of nNeedsDead.alpha) {
+      if (mNeedsDead.tm[deadIdx + "|" + c] !== deadIdx) deadLoops = false;
+    }
+  }
+  ok7(deadLoops, "dead/trap state exists and all transitions loop back to it");
+}
+const tier7 = f7 === 0;
+console.log(`Tier 7 \u2014 edge cases, case-insensitivity & invariants: ${p7}/${p7 + f7} pass${tier7 ? " \u2713" : " \u2717"}`);
+
+// ---------- Tier 8: Thompson's regex-to-NFA equivalence suite ----------
+let p8 = 0, f8 = 0;
+const ok8 = (cond, name, extra) => { if (cond) p8++; else { f8++; console.log("  \u2717 " + name + (extra ? "  (" + extra + ")" : "")); } };
+const REGEX_CASES = [
+  { re: "(a|b)*abb", acc: ["abb", "aabb", "babb", "ababb"], rej: ["", "ab", "ba", "bb"] },
+  { re: "a*b*c*", acc: ["", "a", "b", "c", "abc", "aaabbbccc"], rej: ["ba", "ca", "cb"] },
+  { re: "(0|1)*01", acc: ["01", "001", "101", "1101"], rej: ["", "0", "1", "10", "00"] },
+  { re: "a+b", acc: ["a", "b"], rej: ["", "ab", "ba", "aa"] },
+  { re: "a?b", acc: ["b", "ab"], rej: ["", "a", "aab", "ba"] },
+  { re: "a|b|c", acc: ["a", "b", "c"], rej: ["", "ab", "bc", "d"] }
+];
+for (const rc of REGEX_CASES) {
+  let r, N, M;
+  try {
+    r = A.regexToNFA(rc.re);
+    N = A.parse(r.text);
+    M = A.build(N);
+  } catch (e) {
+    ok8(false, rc.re, "threw: " + e.message);
+    continue;
+  }
+  let good = true;
+  for (const w of rc.acc) {
+    const s = [...w];
+    if (!(A.runNFA(N, s) && A.runDFA(N, M, s))) { good = false; ok8(false, rc.re, "should accept: " + (w || "ε")); break; }
+  }
+  if (good) for (const w of rc.rej) {
+    const s = [...w];
+    if (A.runNFA(N, s) || A.runDFA(N, M, s)) { good = false; ok8(false, rc.re, "should reject: " + (w || "ε")); break; }
+  }
+  if (good) ok8(true, `Thompson ε-NFA for "${rc.re}" language-verified`);
+}
+const tier8 = f8 === 0;
+console.log(`Tier 8 \u2014 Thompson regex-to-NFA equivalence: ${p8}/${p8 + f8} pass${tier8 ? " \u2713" : " \u2717"}`);
+
+// ---------- Tier 9: Expanded "From a Question" natural language suite ----------
+let p9 = 0, f9 = 0;
+const ok9 = (cond, name, extra) => { if (cond) p9++; else { f9++; console.log("  \u2717 " + name + (extra ? "  (" + extra + ")" : "")); } };
+const EXTRA_QUESTIONS = [
+  { q: "ends with abb", acc: ["abb", "aabb"], rej: ["", "ab"] },
+  { q: "starts with a", acc: ["a", "ab"], rej: ["", "b"] },
+  { q: "contains 101", acc: ["101", "0101"], rej: ["", "100"] },
+  { q: "strings over {a,b} with an odd number of b", acc: ["b", "ab", "ba", "bbb"], rej: ["", "bb", "a", "abb"] },
+  { q: "binary strings divisible by 3", acc: ["0", "11", "110", "1001"], rej: ["1", "10", "100", "111"] },
+  { q: "strings over {a,b} of length at least 2", acc: ["aa", "ab", "ba", "aaa"], rej: ["", "a", "b"] },
+  { q: "strings over {a,b} with exactly 2 a's", acc: ["aa", "baa", "aba", "aab"], rej: ["", "a", "aaa", "aaaa"] }
+];
+for (const eq of EXTRA_QUESTIONS) {
+  let r, N, M;
+  try {
+    r = Ex.automatonFromQuestion(eq.q);
+    if (!r || !r.src) { ok9(false, eq.q, "not recognised"); continue; }
+    N = A.parse(r.src);
+    M = A.build(N);
+  } catch (e) {
+    ok9(false, eq.q, "threw: " + e.message);
+    continue;
+  }
+  let good = true;
+  for (const w of eq.acc) {
+    if (!A.runDFA(N, M, [...w])) { good = false; ok9(false, eq.q, "should accept: " + (w || "ε")); break; }
+  }
+  if (good) for (const w of eq.rej) {
+    if (A.runDFA(N, M, [...w])) { good = false; ok9(false, eq.q, "should reject: " + (w || "ε")); break; }
+  }
+  if (good) ok9(true, `Question parser: "${eq.q}"`);
+}
+const tier9 = f9 === 0;
+console.log(`Tier 9 \u2014 natural language question parser expansion: ${p9}/${p9 + f9} pass${tier9 ? " \u2713" : " \u2717"}`);
+
+// ---------- Tier 10: Live HTTP Server and REST API Integration ----------
+let p10 = 0, f10 = 0;
+const ok10 = (cond, name, extra) => { if (cond) p10++; else { f10++; console.log("  \u2717 " + name + (extra ? "  (" + extra + ")" : "")); } };
+
+async function runTier10() {
+  const { server } = require("./server");
+  const testPort = 3099;
+  await new Promise(resolve => server.listen(testPort, resolve));
+
+  try {
+    // 1. GET /api/health
+    const health = await fetch(`http://localhost:${testPort}/api/health`).then(r => r.json());
+    ok10(health.ok === true && health.limits && health.limits.states > 0, "GET /api/health returns valid status and limits");
+
+    // 2. POST /api/convert (standard NFA)
+    const convNfa = await fetch(`http://localhost:${testPort}/api/convert`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ src: "start: q0\nfinal: q1\nq0,a = q0,q1\nq0,b = q0" })
+    }).then(r => r.json());
+    ok10(convNfa.states && convNfa.states.length > 0 && convNfa.transitions && convNfa.transitions.length > 0 && convNfa.hasEps === false,
+      "POST /api/convert handles standard NFA");
+
+    // 3. POST /api/convert (ε-NFA with elimination)
+    const convEnfa = await fetch(`http://localhost:${testPort}/api/convert`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ src: "start: q0\nfinal: q2\nq0,a = q0\nq0,ε = q1\nq1,b = q2" })
+    }).then(r => r.json());
+    ok10(convEnfa.hasEps === true && convEnfa.elimination && convEnfa.elimination.states.length > 0 && convEnfa.elimination.text,
+      "POST /api/convert handles ε-NFA with elimination summary");
+
+    // 4. POST /api/convert with malformed input (error handling)
+    const resBad = await fetch(`http://localhost:${testPort}/api/convert`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ src: "invalid syntax without start" })
+    });
+    ok10(resBad.status === 400, "POST /api/convert rejects invalid automaton with 400");
+
+    // 5. Static files: GET /subset.html, /automata.js, /extract.js
+    const resSubset = await fetch(`http://localhost:${testPort}/subset.html`);
+    const resAuto = await fetch(`http://localhost:${testPort}/automata.js`);
+    const resExt = await fetch(`http://localhost:${testPort}/extract.js`);
+    ok10(resSubset.status === 200 && resAuto.status === 200 && resExt.status === 200, "Serves static HTML and universal JS modules");
+
+    // 6. 404 handler: GET /not-existent
+    const res404 = await fetch(`http://localhost:${testPort}/non-existent-page.html`);
+    ok10(res404.status === 404, "Returns 404 for non-existent routes");
+  } finally {
+    if (server.closeAllConnections) server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+
+  const tier10 = f10 === 0;
+  console.log(`Tier 10 \u2014 live HTTP server and REST API integration: ${p10}/${p10 + f10} pass${tier10 ? " \u2713" : " \u2717"}`);
+
+  const allPass = tier1 && tier2 && tier3 && tier4 && tier5 && tier6 && tier7 && tier8 && tier9 && tier10;
+  console.log(allPass
+    ? "\nALL CHECKS PASSED \u2014 10/10 test tiers passed: conversion, question builder, canvas editor, ε-elimination, minute step simulation, edge cases, invariants, and live HTTP API verified."
+    : "\nSOME CHECKS FAILED.");
+  if (!allPass) process.exit(1);
+}
+
+runTier10();

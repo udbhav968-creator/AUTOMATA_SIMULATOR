@@ -51,9 +51,25 @@
         </div>
         <div data-pane="table" hidden><div class="grid-editor"></div></div>
         <div data-pane="question" hidden>
-          <label class="field">Describe the language in words<textarea class="qtext" rows="4" spellcheck="true" placeholder="e.g. the regular expression (a|b)*abb  — builds an ε-NFA, then press Convert"></textarea></label>
-          <div class="row" style="margin-top:8px"><button class="btn" data-a="fromq">Build the NFA</button><button class="btn sm quiet" data-a="qexample">Try an example</button></div>
-          <details class="hint" style="margin:8px 0 0"><summary>What can I type?</summary>A regular language in words — <em>ending with</em> / <em>starting with</em> / <em>containing</em> a pattern, <em>even/odd number of</em> a symbol, <em>length divisible by k</em>, <em>at least / at most / exactly n</em>, <em>not containing</em>…, <em>binary divisible by k</em> — or a regular expression such as <code>(a|b)*abb</code>. It builds an NFA which you can then Convert. Non-regular languages (e.g. aⁿbⁿ, palindromes) can't be built.</details>
+          <label class="field">Describe the language in words or enter a regular expression
+            <textarea class="qtext" rows="4" spellcheck="true" placeholder="e.g. the regular expression (a|b)*abb — builds an ε-NFA and simulates in real time!"></textarea>
+          </label>
+          <div class="q-live small" style="margin-top:6px;min-height:24px"></div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn primary" data-a="fromq-sim" title="Build automaton and run simulation immediately in real time">⚡ Simulate in Real-Time</button>
+            <button class="btn" data-a="fromq" title="Build NFA definition">Build the NFA</button>
+            <button class="btn sm quiet" data-a="qexample">Try random example</button>
+          </div>
+          <div class="q-chips" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
+            <span class="tiny muted" style="width:100%;font-weight:600">Quick examples (click to simulate):</span>
+            <button type="button" class="btn sm quiet chip" data-q="the regular expression (a|b)*abb">Regex (a|b)*abb (ε-NFA)</button>
+            <button type="button" class="btn sm quiet chip" data-q="the regular expression a*b*c*">Regex a*b*c* (ε-NFA)</button>
+            <button type="button" class="btn sm quiet chip" data-q="strings over {a,b} ending with abb">Ends with abb</button>
+            <button type="button" class="btn sm quiet chip" data-q="strings over {a,b} with an even number of a">Even a's</button>
+            <button type="button" class="btn sm quiet chip" data-q="strings over {0,1} containing the substring 101">Contains 101</button>
+            <button type="button" class="btn sm quiet chip" data-q="strings over {a,b} of length divisible by 3">Length div by 3</button>
+          </div>
+          <details class="hint" style="margin:10px 0 0"><summary>What can I type?</summary>A regular language in words — <em>ending with</em> / <em>starting with</em> / <em>containing</em> a pattern, <em>even/odd number of</em> a symbol, <em>length divisible by k</em>, <em>at least / at most / exactly n</em>, <em>not containing</em>…, <em>binary divisible by k</em> — or a regular expression such as <code>(a|b)*abb</code> or <code>a*b*c*</code>. It builds an automaton and immediately simulates ε-elimination and subset construction in real time.</details>
           <div class="q-out small" style="margin-top:8px"></div>
         </div>
         <div data-pane="draw" hidden><div class="canvas-editor"></div></div>
@@ -71,7 +87,40 @@
         e.target.value = "";
       });
       this.qIndex = 0;
-      host.querySelector(".qtext").addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); this.fromQuestion(); } });
+      this.qText = host.querySelector(".qtext");
+      this.qLive = host.querySelector(".q-live");
+      const checkQLive = Studio.debounce(() => {
+        const txt = (this.qText.value || "").trim();
+        if (txt.length < 2) {
+          if (this.qLive) this.qLive.innerHTML = '<span class="muted tiny">Type a language description or regex above...</span>';
+          return;
+        }
+        try {
+          const res = window.Extract ? Extract.automatonFromQuestion(txt) : null;
+          if (res && res.src) {
+            const tempN = Automata.parse(res.src);
+            const epsBadge = tempN.hasEps ? '<span class="chip" style="background:var(--eps-soft);border-color:var(--eps);color:var(--eps);font-size:11px">ε-NFA</span>' : '<span class="chip" style="font-size:11px">NFA</span>';
+            this.qLive.innerHTML = `<span style="color:var(--go);font-weight:600">✓ Detected:</span> ${esc(res.how)} ${epsBadge} <span class="muted tiny">(${tempN.states.length} states) — ready!</span>`;
+          } else if (res && res.error) {
+            this.qLive.innerHTML = `<span style="color:var(--stop);font-weight:600">Notice:</span> ${esc(res.error)}`;
+          } else {
+            this.qLive.innerHTML = '<span class="muted tiny">Parsing wording... (try "ends with abb", "even number of a", or regex "(a|b)*abb")</span>';
+          }
+        } catch (e) {
+          this.qLive.innerHTML = '<span class="muted tiny">Keep typing...</span>';
+        }
+      }, 200);
+
+      this.qText.addEventListener("input", checkQLive);
+      this.qText.addEventListener("keydown", e => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          this.fromQuestion(true);
+        } else if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          this.fromQuestion(true);
+        }
+      });
       host.addEventListener("click", e => this.onClick(e));
       this.ta.addEventListener("input", Studio.debounce(() => this.validate(), 250));
       this.ta.addEventListener("keydown", e => {
@@ -80,9 +129,17 @@
       const saved = this.opts.storageKey ? Studio.store.get(this.opts.storageKey, null) : null;
       this.ta.value = saved || this.examples[0].src;
       this.validate();
+      if (this.qText && !this.qText.value) this.qText.value = "(a|b)*abb";
+      checkQLive();
     }
 
     onClick(e) {
+      const chip = e.target.closest(".chip");
+      if (chip && chip.dataset.q) {
+        if (this.qText) this.qText.value = chip.dataset.q;
+        this.fromQuestion(true);
+        return;
+      }
       const b = e.target.closest("button"); if (!b || !this.host.contains(b)) return;
       if (b.dataset.mode) return this.setMode(b.dataset.mode);
       const a = b.dataset.a;
@@ -90,17 +147,22 @@
       else if (a === "clear") { this.ta.value = ""; this.validate(); this.setMode("text"); this.ta.focus(); }
       else if (a === "copy") { navigator.clipboard && navigator.clipboard.writeText(this.ta.value).then(() => Studio.toast("Automaton text copied."), () => Studio.toast("Copy failed — select the text and copy it manually.", "err")); }
       else if (a === "random") this.random();
-      else if (a === "fromq") this.fromQuestion();
+      else if (a === "fromq") this.fromQuestion(false);
+      else if (a === "fromq-sim") this.fromQuestion(true);
       else if (a === "qexample") {
         const ex = AutomatonInput.QUESTION_EXAMPLES[this.qIndex++ % AutomatonInput.QUESTION_EXAMPLES.length];
-        this.host.querySelector(".qtext").value = ex; this.fromQuestion();
+        this.host.querySelector(".qtext").value = ex;
+        this.fromQuestion(true);
       }
     }
 
-    fromQuestion() {
+    fromQuestion(autoSimulate) {
       const ta = this.host.querySelector(".qtext"), out = this.host.querySelector(".q-out");
-      const text = (ta.value || "").trim();
-      if (text.length < 4) { out.innerHTML = '<div class="msg err">Describe a language first, e.g. strings over {a,b} ending with abb.</div>'; ta.focus(); return; }
+      let text = (ta.value || "").trim();
+      if (text.length < 2) {
+        text = "(a|b)*abb";
+        ta.value = text;
+      }
       let r = null;
       try { r = window.Extract ? Extract.automatonFromQuestion(text) : null; } catch (e) { r = { error: e.message }; }
       if (r && r.error) { out.innerHTML = `<div class="msg warn">${esc(r.error)}</div>`; return; }
@@ -109,8 +171,10 @@
         return;
       }
       this.setText(r.src, true);
-      this.setMode("text");
-      out.innerHTML = `<div class="msg ok">${esc(r.how || "Built an NFA from the wording — press " + this.opts.runLabel + " to convert it.")}</div>`;
+      out.innerHTML = `<div class="msg ok">${esc(r.how || "Built automaton from question.")} ${autoSimulate ? "<b>Simulating in real time...</b>" : ""}</div>`;
+      if (autoSimulate && typeof window !== "undefined" && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent("automata:simulate", { detail: { src: r.src, how: r.how } }));
+      }
     }
 
     setMode(m) {

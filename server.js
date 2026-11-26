@@ -30,12 +30,20 @@ async function api(req, res, url) {
   if (p === "/api/health") return send(res, 200, { ok: true, limits: A.LIMITS });
   if (p === "/api/convert" && method === "POST") {
     const b = await readBody(req), N = A.parse(b.src), M = A.build(N);
+    const elim = N.hasEps ? A.buildEpsElimination(N) : null;
     return send(res, 200, {
       states: M.D.map((d, i) => ({ id: "D" + i, set: d.set, final: d.fin, start: i === 0 })),
       transitions: M.trans.map(t => ({ from: "D" + t.f, symbol: t.c, to: "D" + t.t })),
       steps: M.steps.length,
       dfaText: A.dfaToText(N, M),
-      warnings: N.warn
+      warnings: N.warn,
+      hasEps: N.hasEps,
+      elimination: elim ? {
+        states: elim.NE.states,
+        finals: elim.NE.finals,
+        text: A.toText(elim.NE),
+        steps: elim.steps.length
+      } : null
     });
   }
   return send(res, 404, { error: "Unknown endpoint " + p });
