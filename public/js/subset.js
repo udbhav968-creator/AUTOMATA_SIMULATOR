@@ -654,7 +654,7 @@
         let cellHtml = '<span class="muted">·</span>';
         if (isDone) {
           const tgts = elim.steps[stepIdx].targets;
-          cellHtml = esc(tgts && tgts.length ? fmt(tgts) : "∅");
+          cellHtml = tgts && tgts.length ? esc(fmt(tgts)) : '<span class="muted">∅</span>';
         }
         h += `<td class="set"${isNow ? ' style="background:var(--marker);color:#18213a;font-weight:700"' : ""}>${cellHtml}</td>`;
       });

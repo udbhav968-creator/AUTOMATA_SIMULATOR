@@ -36,7 +36,7 @@ Simulator**
 | 2        | Harshit          | S24CSEU00xx    | Interactive NFA/DFA vector visualiser & graph layout        |
 | 3        | Prabjot          | S24CSEU00xx    | Subset page, stepper & working-table UI                     |
 | 4        | Anubhav          | S24CSEU00xx    | Input editor, examples & equivalence verification/testing   |
-| 5        | Yashwanth Reddy  | S24CSEU00xx    | Documentation, report & demonstration assets                |
+| 5        | Yashwanth Reddy  | S24CSEU00xx    | Minimization & Export Engineer: Hopcroft DFA minimization, academic export suite (TikZ/DOT/JFLAP), string tracer & technical documentation |
 
 *(Enrolment numbers shown as S24CSEU00xx are placeholders — replace them
 with each member's actual ID.)*
@@ -472,7 +472,7 @@ point of the tool.
 | Harshit (S24CSEU00xx)             | Visualisation engineer | NFA/DFA vector diagrams; curved edge routing; node drag, zoom and pan; theme.                                        |
 | Prabjot (S24CSEU00xx)             | Simulation UI engineer | Subset page; stepper and transport; working table and step log.                                                      |
 | Anubhav (S24CSEU00xx)             | Input & verification   | Text/table editor; examples; automatic equivalence check; CLI test harness.                                          |
-| Yashwanth Reddy (S24CSEU00xx)     | Documentation & QA     | Technical report; README; demonstration assets and figures.                                                          |
+| Yashwanth Reddy (S24CSEU00xx)     | Minimization & Export Engineer | Designed and implemented Hopcroft's partition refinement DFA minimization algorithm, multi-format academic export engine (LaTeX TikZ, Graphviz DOT, JFLAP 7.0 XML, Markdown tables), interactive string execution tracer, and technical milestone documentation. |
 
 # **9. Conclusion & Future Scope**
 
