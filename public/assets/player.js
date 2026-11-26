@@ -30,17 +30,17 @@
         if (b.dataset.speed) return this.setSpeed(+b.dataset.speed);
         const a = b.dataset.a;
         if (a === "play") this.toggle(); else if (a === "prev") this.step(-1); else if (a === "next") this.step(1);
-        else if (a === "first") { this.pause(); this.go(0); } else if (a === "last") { this.pause(); this.go(this.count - 1); }
+        else if (a === "first") { this.pause(); this.go(0, true); } else if (a === "last") { this.pause(); this.go(this.count - 1, true); }
       });
-      this.range.addEventListener("input", () => { this.pause(); this.go(+this.range.value); });
+      this.range.addEventListener("input", () => { this.pause(); this.go(+this.range.value, true); });
       if (this.opts.keyboard) document.addEventListener("keydown", e => {
         if (!this.count || (window.Studio && Studio.typing(e)) || e.altKey || e.ctrlKey || e.metaKey) return;
         if (!this.host.isConnected || this.host.closest("[hidden]")) return;
         if (e.key === " ") { e.preventDefault(); this.toggle(); }
         else if (e.key === "ArrowRight") { e.preventDefault(); this.step(1); }
         else if (e.key === "ArrowLeft") { e.preventDefault(); this.step(-1); }
-        else if (e.key === "Home") { e.preventDefault(); this.pause(); this.go(0); }
-        else if (e.key === "End") { e.preventDefault(); this.pause(); this.go(this.count - 1); }
+        else if (e.key === "Home") { e.preventDefault(); this.pause(); this.go(0, true); }
+        else if (e.key === "End") { e.preventDefault(); this.pause(); this.go(this.count - 1, true); }
       });
       this.tick = this.tick.bind(this);
     }
@@ -62,7 +62,8 @@
       this.range.value = this.i;
       this.host.querySelector(".at").textContent = this.i + 1;
       this.host.querySelector(".label").textContent = this.opts.label(this.i) || "";
-      const res = this.opts.onStep(this.i, { animate: !silent && this.playing, ms: this.stepMs() });
+      const ms = this.stepMs() || (this.speed === Infinity ? 0 : 700);
+      const res = this.opts.onStep(this.i, { animate: !silent && ms > 0, ms });
       return res;
     }
     step(d) { this.pause(); this.go(this.i + d); }

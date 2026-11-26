@@ -207,7 +207,7 @@
   }
 
   // ---------------- Stage 1: ε-NFA → NFA View Handler ----------------
-  function viewsForStage1(i, phase) {
+  function viewsForStage1(i, phase = 2) {
     if (!elim) return;
     const s = elim.steps[i];
     if (s.type === "overview") {
@@ -218,16 +218,33 @@
     }
 
     if (s.type === "closure") {
-      const nfaClasses = { [s.state]: "in-s" };
-      s.added.forEach(q => (nfaClasses[q] = "closure"));
-      const hot = new Set(s.epsEdges.map(e => e.join("|")));
+      const nfaClasses = {};
+      if (phase === 0) {
+        nfaClasses[s.state] = "in-s active";
+      } else if (phase === 1) {
+        nfaClasses[s.state] = "in-s moved";
+        s.added.forEach(q => (nfaClasses[q] = "closure"));
+      } else {
+        nfaClasses[s.state] = "in-s";
+        s.added.forEach(q => (nfaClasses[q] = "closure"));
+        if (s.isFinal) {
+          s.reachingFinals.forEach(q => (nfaClasses[q] = "accept"));
+        }
+      }
+      const hot = new Set(phase >= 1 ? s.epsEdges.map(e => e.join("|")) : []);
       nfaView.setView({ classes: nfaClasses, hotEdges: hot, dimOthers: true, dimEdges: true });
 
-      // Target NFA nodes
+      // Target NFA nodes on right canvas
       const visNodes = new Set(elim.NE.states.slice(0, elim.NE.states.indexOf(s.state) + 1));
       const targetClasses = {};
-      targetClasses[s.state] = s.isFinal ? "current fresh" : "current";
-      dfaView.setView({ visibleNodes: visNodes, visibleEdges: new Set(), classes: targetClasses, hotEdges: new Set(), pulse: s.state });
+      targetClasses[s.state] = s.isFinal ? "current fresh accept" : "current fresh";
+      dfaView.setView({
+        visibleNodes: visNodes,
+        visibleEdges: new Set(),
+        classes: targetClasses,
+        hotEdges: new Set(),
+        pulse: phase >= 2 ? s.state : null
+      });
       return;
     }
 
@@ -235,15 +252,15 @@
       const nfaClasses = {};
       s.clQ.forEach(q => (nfaClasses[q] = "in-s"));
       const hot = new Set();
-      if (phase >= 1) {
-        s.move.forEach(q => (nfaClasses[q] = (nfaClasses[q] ? nfaClasses[q] + " " : "") + "moved"));
+      if (phase === 1) {
+        s.move.forEach(q => (nfaClasses[q] = (nfaClasses[q] ? nfaClasses[q] + " " : "") + "moved active"));
         s.moveEdges.forEach(e => hot.add(e.join("|")));
-      }
-      if (phase === 0) s.moveEdges.forEach(e => hot.add(e.join("|")));
-      if (phase >= 2) {
+      } else if (phase >= 2) {
+        s.move.forEach(q => (nfaClasses[q] = (nfaClasses[q] ? nfaClasses[q] + " " : "") + "moved"));
         s.added.forEach(q => (nfaClasses[q] = "closure"));
         s.epsEdges.forEach(e => hot.add(e.join("|")));
       }
+      if (phase === 0 && s.moveEdges) s.moveEdges.forEach(e => hot.add(e.join("|")));
       nfaView.setView({ classes: nfaClasses, hotEdges: hot, dimOthers: true, dimEdges: true });
 
       // Target NFA edges up to step i
@@ -256,6 +273,9 @@
         s.targets.forEach(t => dHot.add(`${s.state}|${t}|${s.sym}`));
       }
       const targetClasses = { [s.state]: "current" };
+      if (phase >= 2) {
+        s.targets.forEach(t => { targetClasses[t] = "fresh"; });
+      }
       dfaView.setView({
         visibleNodes: new Set(elim.NE.states),
         visibleEdges: visE,
@@ -267,7 +287,7 @@
   }
 
   // ---------------- Stage 2 & Direct: Subset Construction View Handler ----------------
-  function viewsForSubset(i, phase) {
+  function viewsForSubset(i, phase = 2) {
     const M = currentM();
     if (!M) return;
     const sourceMachine = activeStage === "direct-dfa" ? N : (NE || N);
@@ -277,7 +297,7 @@
     S.forEach(q => (nfaClasses[q] = "in-s"));
     const hot = new Set();
     if (phase >= 1) {
-      s.move.forEach(q => (nfaClasses[q] = (nfaClasses[q] ? nfaClasses[q] + " " : "") + "moved"));
+      s.move.forEach(q => (nfaClasses[q] = (nfaClasses[q] ? nfaClasses[q] + " " : "") + "moved active"));
       s.moveEdges.forEach(e => hot.add(e.join("|")));
     }
     if (phase === 0 && s.type === "move") s.moveEdges.forEach(e => hot.add(e.join("|")));
@@ -314,14 +334,28 @@
     narrateStage1(i);
     tableStage1(i);
 
+    const curRow = $("#workTable").querySelector("tr.now");
+    if (curRow && curRow.scrollIntoView) curRow.scrollIntoView({ block: "nearest", behavior: "smooth" });
+
     if (info && info.animate && info.ms > 0) {
       const ms = info.ms;
       viewsForStage1(i, 0);
-      if (s.moveEdges && s.moveEdges.length) await nfaView.animate(s.moveEdges, ms * 0.38);
-      if (cur !== i) return;
-      viewsForStage1(i, 1);
-      if (s.epsEdges && s.epsEdges.length) await nfaView.animate(s.epsEdges, ms * 0.32);
-      if (cur !== i) return;
+      if (s.type === "closure") {
+        if (s.epsEdges && s.epsEdges.length) await nfaView.animate(s.epsEdges, ms * 0.45);
+        if (cur !== i) return;
+        viewsForStage1(i, 1);
+      } else if (s.type === "trans") {
+        if (s.moveEdges && s.moveEdges.length) await nfaView.animate(s.moveEdges, ms * 0.35);
+        if (cur !== i) return;
+        viewsForStage1(i, 1);
+        if (s.epsEdges && s.epsEdges.length) await nfaView.animate(s.epsEdges, ms * 0.28);
+        if (cur !== i) return;
+        viewsForStage1(i, 2);
+        if (s.targets && s.targets.length) {
+          await dfaView.animate(s.targets.map(t => [s.state, s.sym, t]), ms * 0.3);
+        }
+        if (cur !== i) return;
+      }
     }
     viewsForStage1(i, 2);
 
@@ -342,6 +376,9 @@
     narrateSubset(i);
     tableSubset(i);
 
+    const curRow = $("#workTable").querySelector("tr.now");
+    if (curRow && curRow.scrollIntoView) curRow.scrollIntoView({ block: "nearest", behavior: "smooth" });
+
     if (info && info.animate && info.ms > 0) {
       const ms = info.ms;
       viewsForSubset(i, 0);
@@ -349,6 +386,11 @@
       if (cur !== i) return;
       viewsForSubset(i, 1);
       if (s.epsEdges && s.epsEdges.length) await nfaView.animate(s.epsEdges, ms * 0.28);
+      if (cur !== i) return;
+      viewsForSubset(i, 2);
+      if (s.type === "move") {
+        await dfaView.animate([[ "D" + s.from, s.c, "D" + s.to ]], ms * 0.32);
+      }
       if (cur !== i) return;
     }
     viewsForSubset(i, 2);
@@ -362,12 +404,71 @@
     }
   }
 
+  function partitionGraph(s) {
+    if (!s || !s.partition) return minDfaGraph();
+    const P = s.partition;
+    const blockOf = {};
+    P.forEach((block, idx) => {
+      block.forEach(st => { blockOf[st] = idx; });
+    });
+
+    const nodes = P.map((block, i) => {
+      const isFin = block.some(x => M_dfa.D[x] && M_dfa.D[x].fin);
+      const isDead = block.every(x => M_dfa.D[x] && M_dfa.D[x].dead);
+      const hasStart = block.includes(0);
+      return {
+        id: "B" + i,
+        label: "B" + i,
+        sub: "{" + block.map(x => plainName(x, M_dfa)).join(",") + "}",
+        final: isFin,
+        start: hasStart,
+        dead: isDead,
+        title: `Block ${i} = {${block.map(x => plainName(x, M_dfa)).join(", ")}}${isFin ? " (accepting)" : ""}`
+      };
+    });
+
+    const edges = [];
+    const edgeSeen = new Set();
+    P.forEach((block, i) => {
+      const rep = block[0];
+      N.alpha.forEach(c => {
+        const tgt = M_dfa.tm[rep + "|" + c];
+        if (tgt !== undefined && blockOf[tgt] !== undefined) {
+          const toIdx = blockOf[tgt];
+          const k = `${i}->${toIdx}|${c}`;
+          if (!edgeSeen.has(k)) {
+            edgeSeen.add(k);
+            edges.push({ from: "B" + i, to: "B" + toIdx, sym: c });
+          }
+        }
+      });
+    });
+
+    return { nodes, edges };
+  }
+
   async function showStageMin(i, info) {
     if (!min_res) return;
     const s = min_res.steps[i];
     narrateStageMin(i);
     tableStageMin(i);
-    viewsForStageMin(i);
+
+    const curRow = $("#workTable").querySelector("tr.now");
+    if (curRow && curRow.scrollIntoView) curRow.scrollIntoView({ block: "nearest", behavior: "smooth" });
+
+    if (info && info.animate && info.ms > 0) {
+      const ms = info.ms;
+      viewsForStageMin(i, 0);
+      if (s.type === "split" && s.originalBlock && s.symbol) {
+        const testEdges = s.originalBlock
+          .map(st => ["D" + st, s.symbol, "D" + M_dfa.tm[st + "|" + s.symbol]])
+          .filter(e => M_dfa.tm[e[0].slice(1) + "|" + e[1]] !== undefined);
+        if (testEdges.length) await nfaView.animate(testEdges, ms * 0.45);
+        if (cur !== i) return;
+      }
+      viewsForStageMin(i, 1);
+    }
+    viewsForStageMin(i, 2);
 
     if (isPlayingPipeline && i === min_res.steps.length - 1) {
       isPlayingPipeline = false;
@@ -375,15 +476,69 @@
     }
   }
 
-  function viewsForStageMin(i) {
+  function viewsForStageMin(i, phase = 2) {
     if (!min_res) return;
     const s = min_res.steps[i];
     const nfaClasses = {}, dfaClasses = {};
-    if (s.originalBlock) {
-      s.originalBlock.forEach(st => { nfaClasses["D" + st] = "current"; });
+    const hotDfaEdges = new Set();
+
+    // Map each state in DFA to its partition block index
+    s.partition.forEach((block, bIdx) => {
+      block.forEach(st => {
+        nfaClasses["D" + st] = `block-${bIdx % 4}`;
+      });
+    });
+
+    if (s.type === "split") {
+      if (phase === 0) {
+        s.originalBlock.forEach(st => {
+          nfaClasses["D" + st] = "current moved active";
+        });
+      } else if (phase === 1) {
+        s.originalBlock.forEach(st => {
+          nfaClasses["D" + st] = "current moved";
+          const tgt = M_dfa.tm[st + "|" + s.symbol];
+          if (tgt !== undefined) {
+            hotDfaEdges.add(`D${st}|D${tgt}|${s.symbol}`);
+          }
+        });
+      } else {
+        s.subBlocks.forEach((sb, sbIdx) => {
+          sb.forEach(st => {
+            nfaClasses["D" + st] = sbIdx === 0 ? "current fresh" : "closure";
+          });
+        });
+      }
+    } else if (s.type === "final") {
+      s.partition.forEach((block, bIdx) => {
+        const isFin = block.some(x => M_dfa.D[x] && M_dfa.D[x].fin);
+        block.forEach(st => {
+          nfaClasses["D" + st] = isFin ? "accept" : `block-${bIdx % 4}`;
+        });
+      });
     }
-    nfaView.setView({ classes: nfaClasses, hotEdges: new Set(), dimOthers: s.type === "split", dimEdges: false });
-    dfaView.setView({ classes: dfaClasses, hotEdges: new Set(), dimOthers: false, dimEdges: false });
+
+    nfaView.setView({
+      classes: nfaClasses,
+      hotEdges: hotDfaEdges,
+      dimOthers: s.type === "split" && phase === 0,
+      dimEdges: s.type === "split" && phase === 0
+    });
+
+    // Update Right Canvas with the partition graph at this step
+    const pGraph = s.type === "final" || i === min_res.steps.length - 1 ? minDfaGraph() : partitionGraph(s);
+    dfaView.setGraph(pGraph, { keep: true });
+    if (s.type === "split") {
+      const splitIdx = Math.min(s.partition.length - 1, min_res.minDFA.D.length - 1);
+      dfaClasses["B" + splitIdx] = "fresh pulse";
+    }
+    dfaView.setView({
+      classes: dfaClasses,
+      hotEdges: new Set(),
+      dimOthers: false,
+      dimEdges: false,
+      pulse: s.type === "split" ? "B" + (s.partition.length - 1) : null
+    });
   }
 
   function narrateStageMin(i) {
@@ -691,6 +846,11 @@
 
     if (!traceInput || !traceRunBtn) return;
 
+    let activeTr = null;
+    let trStep = 0;
+    let trTimer = null;
+    let trPlaying = false;
+
     if (tracePresets && N) {
       const sampleList = [""];
       if (N.alpha.length > 0) sampleList.push(N.alpha[0]);
@@ -706,22 +866,169 @@
       tracePresets.querySelectorAll("button[data-word]").forEach(b => {
         b.onclick = () => {
           traceInput.value = b.dataset.word;
-          runTrace(b.dataset.word);
+          runTrace(b.dataset.word, false);
         };
       });
     }
 
-    const runTrace = word => {
+    function stopTimer() {
+      if (trTimer) {
+        clearInterval(trTimer);
+        trTimer = null;
+      }
+      trPlaying = false;
+      const playBtn = $("#trBtnPlay");
+      if (playBtn) playBtn.textContent = "▶ Play";
+    }
+
+    function renderTraceStep(stepIdx, animate = true) {
+      if (!activeTr) return;
+      trStep = Math.max(0, Math.min(activeTr.chars.length, stepIdx));
+
+      // 1. Update Tape Strip
+      const tapeStrip = $("#tapeStrip");
+      if (tapeStrip) {
+        if (activeTr.chars.length === 0) {
+          tapeStrip.innerHTML = `<button type="button" class="tape-cell active eps" data-step="0">ε</button>`;
+        } else {
+          let th = "";
+          activeTr.chars.forEach((c, idx) => {
+            let cls = "tape-cell";
+            if (idx < trStep) cls += " done";
+            else if (idx === trStep) cls += " active";
+            th += `<button type="button" class="${cls}" data-step="${idx}">${esc(c)}</button>`;
+          });
+          if (trStep === activeTr.chars.length) {
+            th += `<span class="tape-cell active" style="font-size:11px;color:var(--graphite)">END</span>`;
+          }
+          tapeStrip.innerHTML = th;
+          tapeStrip.querySelectorAll("button[data-step]").forEach(b => {
+            b.onclick = () => {
+              stopTimer();
+              renderTraceStep(+b.dataset.step, true);
+            };
+          });
+          const activeCell = tapeStrip.querySelector(".tape-cell.active");
+          if (activeCell && activeCell.scrollIntoView) {
+            activeCell.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+          }
+        }
+      }
+
+      // 2. Update Narrative Banner
+      const liveBanner = $("#trLiveBanner");
+      const dfaP = activeTr.dfaPath[trStep];
+      const nfaP = activeTr.nfaPath[trStep];
+      const isEnd = trStep === activeTr.chars.length;
+
+      if (liveBanner && dfaP && nfaP) {
+        if (trStep === 0) {
+          const dName = plainName(0, M_dfa);
+          liveBanner.innerHTML = `<b>Initial State:</b> DFA starts at <b>${esc(dName)}</b> (${esc(fmt(M_dfa.D[0].set))}); NFA active set is <b>${esc(fmt(nfaP.set))}</b>. Click <b>▶ Step</b> to consume symbols.`;
+        } else {
+          const sym = activeTr.chars[trStep - 1];
+          const prevD = activeTr.dfaPath[trStep - 1];
+          const prevN = activeTr.nfaPath[trStep - 1];
+          const isDead = dfaP.isDead || dfaP.state === null;
+          const dfaTrans = isDead ? `∅ (dead state)` : plainName(dfaP.state, M_dfa);
+
+          let msg = `<b>Step ${trStep} of ${activeTr.chars.length}:</b> Read symbol ‘<b style="color:var(--marker)">${esc(sym)}</b>’ → `;
+          msg += `DFA moved <b>${esc(plainName(prevD.state, M_dfa))} —${esc(sym)}→ ${esc(dfaTrans)}</b>; `;
+          msg += `NFA branched <b>${esc(fmt(prevN.set))} —${esc(sym)}→ ${esc(fmt(nfaP.set))}</b>.`;
+          if (isEnd) {
+            msg += `<br>${activeTr.dfaAccepted
+              ? `<b style="color:var(--go)">✓ STRING ACCEPTED ◎</b>: Input fully consumed. DFA ended in accepting state <b>${esc(plainName(dfaP.state, M_dfa))}</b>; NFA reached accepting state(s) <b>${esc(fmt(nfaP.set.filter(s => N.finals.includes(s))))}</b>.`
+              : `<b style="color:var(--stop)">✗ STRING REJECTED</b>: Input ended in ${isDead ? "dead/trap state ∅" : `non-accepting state <b>${esc(plainName(dfaP.state, M_dfa))}</b>`}; no NFA branches reached a final state.`}`;
+          }
+          liveBanner.innerHTML = msg;
+        }
+      }
+
+      // 3. Update Step Label
+      const stepLabel = $("#trStepLabel");
+      if (stepLabel) {
+        stepLabel.textContent = `Head: ${trStep}/${activeTr.chars.length} symbols`;
+      }
+
+      // 4. Visual Canvas Animation & Highlight
+      // Ensure canvases are showing the NFA and DFA side-by-side
+      if (activeStage === "enfa-to-nfa" || activeStage === "dfa-min") {
+        setTitles(N.hasEps ? "ε-Free NFA" : "Source NFA", "DFA (Execution Path)");
+        nfaView.setGraph(GraphView.fromNFA(NE || N), { keep: true });
+        dfaView.setGraph(dfaGraph(M_dfa), { keep: true });
+      }
+
+      // Highlight DFA State
+      const dfaClasses = {};
+      if (dfaP && dfaP.state !== null) {
+        let cls = "current active-trace";
+        if (isEnd) {
+          cls += activeTr.dfaAccepted ? " accept" : " reject";
+        }
+        dfaClasses["D" + dfaP.state] = cls;
+
+        if (animate && trStep > 0) {
+          const prevD = activeTr.dfaPath[trStep - 1];
+          const sym = activeTr.chars[trStep - 1];
+          if (prevD.state !== null && dfaP.state !== null) {
+            dfaView.animate([[ "D" + prevD.state, sym, "D" + dfaP.state ]], 450);
+          }
+        }
+
+        const sym = trStep > 0 ? activeTr.chars[trStep - 1] : "";
+        const prevD = trStep > 0 ? activeTr.dfaPath[trStep - 1] : null;
+        const hotEdge = (prevD && prevD.state !== null && dfaP.state !== null) ? [`D${prevD.state}|D${dfaP.state}|${sym}`] : [];
+
+        dfaView.setView({
+          visibleNodes: new Set(M_dfa.D.map((_, k) => "D" + k)),
+          visibleEdges: new Set(M_dfa.trans.map(t => `D${t.f}|D${t.t}|${t.c}`)),
+          classes: dfaClasses,
+          hotEdges: new Set(hotEdge),
+          pulse: "D" + dfaP.state
+        });
+      }
+
+      // Highlight NFA Active Subset
+      const nfaClasses = {};
+      if (nfaP) {
+        nfaP.set.forEach(q => {
+          let cls = "in-s active-trace";
+          if (isEnd && N.finals.includes(q)) cls += " accept";
+          nfaClasses[q] = cls;
+        });
+
+        if (animate && trStep > 0) {
+          const prevN = activeTr.nfaPath[trStep - 1];
+          const sym = activeTr.chars[trStep - 1];
+          const nfaEdges = [];
+          const sourceMachine = NE || N;
+          prevN.set.forEach(u => {
+            (sourceMachine.d[u + "|" + sym] || []).forEach(v => nfaEdges.push([u, sym, v]));
+          });
+          if (nfaEdges.length) nfaView.animate(nfaEdges, 450);
+        }
+
+        nfaView.setView({
+          classes: nfaClasses,
+          hotEdges: new Set(),
+          dimOthers: true,
+          dimEdges: false
+        });
+      }
+    }
+
+    const runTrace = (word, autoPlay = false) => {
       if (!N || !M_dfa) return;
-      const tr = A.traceString(N, M_dfa, word);
-      if (!tr) return;
+      stopTimer();
+      activeTr = A.traceString(N, M_dfa, word);
+      if (!activeTr) return;
       traceResult.style.display = "";
 
-      const acceptBadge = tr.dfaAccepted
+      const acceptBadge = activeTr.dfaAccepted
         ? `<span class="chip" style="background:var(--go-soft);border-color:var(--go);color:var(--go);font-weight:700;font-size:13px">✓ ACCEPTED</span>`
         : `<span class="chip" style="background:var(--stop-soft);border-color:var(--stop);color:var(--stop);font-weight:700;font-size:13px">✗ REJECTED</span>`;
 
-      let dfaStepsHtml = tr.dfaPath.map((p, idx) => {
+      let dfaStepsHtml = activeTr.dfaPath.map((p, idx) => {
         const isStart = idx === 0;
         const nameStr = p.state !== null ? plainName(p.state, M_dfa) : "∅";
         const finTag = p.isFinal ? " ◎" : (p.isDead ? " (dead)" : "");
@@ -729,7 +1036,7 @@
         return `${arr}<b>${isStart ? "→ " : ""}${nameStr}${finTag}</b>`;
       }).join("");
 
-      let nfaStepsHtml = tr.nfaPath.map((p, idx) => {
+      let nfaStepsHtml = activeTr.nfaPath.map((p, idx) => {
         const isStart = idx === 0;
         const setStr = p.set && p.set.length ? "{" + p.set.join(",") + "}" : "∅";
         const finTag = p.isFinal ? " ◎" : "";
@@ -738,28 +1045,99 @@
       }).join("");
 
       traceResult.innerHTML = `
-        <div style="padding:10px 14px;background:var(--sheet-2);border:1px solid var(--rule);border-radius:var(--r-md)">
-          <div class="row between" style="align-items:center;margin-bottom:8px">
+        <div style="padding:14px;background:var(--sheet-2);border:1px solid var(--rule);border-radius:var(--r-md)">
+          <div class="row between" style="align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
             <div class="row" style="align-items:center;gap:8px">
               ${acceptBadge}
-              <span style="font-weight:700">Input: “<code>${esc(tr.word === "" ? "ε (empty string)" : tr.word)}</code>”</span>
-              <span class="muted tiny">(${tr.chars.length} symbol${tr.chars.length === 1 ? "" : "s"})</span>
+              <span style="font-weight:700">Input: “<code>${esc(activeTr.word === "" ? "ε (empty string)" : activeTr.word)}</code>”</span>
+              <span class="muted tiny">(${activeTr.chars.length} symbol${activeTr.chars.length === 1 ? "" : "s"})</span>
             </div>
-            <span class="tiny" style="color:var(--go);font-weight:600">✓ NFA & DFA decisions match</span>
+            <div class="row small" style="align-items:center;gap:6px">
+              <span class="tiny" style="color:var(--go);font-weight:600">✓ NFA & DFA paths verified equivalent</span>
+              <span class="tiny muted" id="trStepLabel"></span>
+            </div>
           </div>
-          <div class="stack" style="gap:6px;font-size:13px">
-            <div><span class="k" style="display:inline-block;width:90px;font-weight:600">DFA Path:</span> ${dfaStepsHtml}</div>
-            <div><span class="k" style="display:inline-block;width:90px;font-weight:600">NFA Active:</span> ${nfaStepsHtml}</div>
+
+          <!-- Interactive Tape Strip & Navigation -->
+          <div class="tape-wrap">
+            <div class="row small between" style="width:100%;align-items:center;gap:10px;flex-wrap:wrap">
+              <div class="row" style="align-items:center;gap:8px;overflow-x:auto;max-width:100%">
+                <span style="font-weight:700;white-space:nowrap">Tape Head:</span>
+                <div class="tape-strip" id="tapeStrip"></div>
+              </div>
+              <div class="row" style="gap:4px;flex-shrink:0">
+                <button type="button" class="btn sm" id="trBtnFirst" title="Start of string (Home)">⏮</button>
+                <button type="button" class="btn sm" id="trBtnPrev" title="Previous symbol (←)">◀</button>
+                <button type="button" class="btn sm primary" id="trBtnNext" title="Next symbol (→)">▶ Step</button>
+                <button type="button" class="btn sm" id="trBtnPlay" title="Auto-play simulation">▶ Play</button>
+                <button type="button" class="btn sm" id="trBtnLast" title="End of string (End)">⏭</button>
+              </div>
+            </div>
+            <div id="trLiveBanner" style="width:100%;font-size:13.5px;padding:8px 12px;background:var(--sheet);border-radius:6px;border:1px solid var(--rule);margin-top:6px"></div>
+          </div>
+
+          <div class="stack" style="gap:6px;font-size:13px;margin-top:10px">
+            <div><span class="k" style="display:inline-block;width:95px;font-weight:600">DFA Path:</span> ${dfaStepsHtml}</div>
+            <div><span class="k" style="display:inline-block;width:95px;font-weight:600">NFA Active:</span> ${nfaStepsHtml}</div>
           </div>
         </div>
       `;
+
+      // Wire Buttons
+      const btnFirst = $("#trBtnFirst");
+      const btnPrev = $("#trBtnPrev");
+      const btnNext = $("#trBtnNext");
+      const btnPlay = $("#trBtnPlay");
+      const btnLast = $("#trBtnLast");
+
+      if (btnFirst) btnFirst.onclick = () => { stopTimer(); renderTraceStep(0, false); };
+      if (btnPrev) btnPrev.onclick = () => { stopTimer(); renderTraceStep(trStep - 1, false); };
+      if (btnNext) btnNext.onclick = () => { stopTimer(); renderTraceStep(trStep + 1, true); };
+      if (btnLast) btnLast.onclick = () => { stopTimer(); renderTraceStep(activeTr.chars.length, false); };
+      if (btnPlay) {
+        btnPlay.onclick = () => {
+          if (trPlaying) {
+            stopTimer();
+          } else {
+            if (trStep >= activeTr.chars.length) renderTraceStep(0, false);
+            trPlaying = true;
+            btnPlay.textContent = "⏸ Pause";
+            trTimer = setInterval(() => {
+              if (trStep < activeTr.chars.length) {
+                renderTraceStep(trStep + 1, true);
+              } else {
+                stopTimer();
+              }
+            }, 800);
+          }
+        };
+      }
+
+      renderTraceStep(0, false);
+
+      if (autoPlay && activeTr.chars.length > 0) {
+        btnPlay.click();
+      }
     };
 
-    traceRunBtn.onclick = () => runTrace(traceInput.value);
-    if (traceStepBtn) traceStepBtn.onclick = () => runTrace(traceInput.value);
-    traceInput.onkeydown = e => { if (e.key === "Enter") runTrace(traceInput.value); };
+    traceRunBtn.onclick = () => runTrace(traceInput.value, false);
+    if (traceStepBtn) {
+      traceStepBtn.onclick = () => {
+        if (!activeTr || activeTr.word !== traceInput.value) {
+          runTrace(traceInput.value, false);
+          if (activeTr.chars.length > 0) {
+            setTimeout(() => renderTraceStep(1, true), 80);
+          }
+        } else {
+          renderTraceStep(trStep + 1, true);
+        }
+      };
+    }
+    traceInput.onkeydown = e => { if (e.key === "Enter") runTrace(traceInput.value, false); };
     if (traceClearBtn) {
       traceClearBtn.onclick = () => {
+        stopTimer();
+        activeTr = null;
         traceInput.value = "";
         traceResult.style.display = "none";
       };
