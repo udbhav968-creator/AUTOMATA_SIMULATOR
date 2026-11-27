@@ -101,8 +101,13 @@
         '<button class="btn sm" data-cmode="delete">Delete</button>' +
         '<span style="width:10px"></span>' +
         '<button class="btn sm quiet" data-caction="start">Set start</button>' +
-        '<button class="btn sm quiet" data-caction="final">Toggle accept</button>' +
+        '<button class="btn sm" data-caction="final" style="background:#0F2C59;color:#fff;border-color:#0F2C59;font-weight:700" title="Click to make selected state Final/Accepting (Double-click any state circle also works)">◎ Toggle Final State</button>' +
         '<button class="btn sm quiet" data-caction="clear">Clear</button>' +
+        '</div>' +
+        '<div class="final-states-bar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;padding:6px 10px;background:#f8fafc;border-radius:6px;font-size:12px;border:1px solid #cbd5e1">' +
+        '<strong style="color:#0F2C59">Final State (◎):</strong>' +
+        '<span class="final-state-chips" style="display:inline-flex;gap:4px;flex-wrap:wrap"></span>' +
+        '<span style="color:#64748b;font-size:11px;margin-left:auto">(💡 Click chip or double-click any circle on canvas to toggle Final ◎)</span>' +
         '</div>' +
         '<div class="c-hint small" style="margin-bottom:6px"></div>';
       const svg = el("svg", { viewBox: "0 0 600 340", role: "img" });
@@ -122,7 +127,14 @@
 
     action(a) {
       if (a === "clear") { this.model = { nodes: [], start: null, edges: [] }; this.sel = this.pending = null; this.changed(); return; }
-      if (!this.sel) { this.setHint("Select a state first (use Move, then click a circle)."); return; }
+      if (!this.sel) {
+        if (this.model.nodes.length > 0) {
+          this.sel = this.model.nodes[this.model.nodes.length - 1].id;
+        } else {
+          this.setHint("Select a state first (click a state circle).");
+          return;
+        }
+      }
       if (a === "start") this.model.start = this.sel;
       if (a === "final") { const n = this.node(this.sel); if (n) n.final = !n.final; }
       this.changed();
@@ -133,6 +145,7 @@
 
     onNode(e, id) {
       e.stopPropagation();
+      this.sel = id;
       if (this.mode === "delete") return this.removeNode(id);
       if (this.mode === "transition") {
         if (!this.pending) { this.pending = id; this.setHint("Now click the target state (click the same state for a self-loop)."); this.paint(); }
@@ -140,7 +153,7 @@
         return;
       }
       // move / select
-      this.sel = id; this.paint();
+      this.paint();
       if (this.mode === "move") {
         const n = this.node(id); if (!n) return;
         const move = ev => { const p = this.toLocal(ev); n.x = Math.round(p.x); n.y = Math.round(p.y); this.paint(); };
@@ -156,6 +169,35 @@
       [...svg.querySelectorAll(".ca-el")].forEach(n => n.remove());
       const add = n => { n.classList.add("ca-el"); svg.appendChild(n); return n; };
       const byId = {}; this.model.nodes.forEach(n => (byId[n.id] = n));
+
+      // update final state chips bar
+      const chipsHost = this.host.querySelector(".final-state-chips");
+      if (chipsHost) {
+        chipsHost.innerHTML = "";
+        if (!this.model.nodes.length) {
+          const emp = document.createElement("span");
+          emp.style.color = "#94a3b8";
+          emp.textContent = "(No states yet)";
+          chipsHost.appendChild(emp);
+        } else {
+          this.model.nodes.forEach(n => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.style.cssText = n.final
+              ? "background:#0F2C59;border:1px solid #0F2C59;color:#fff;font-weight:700;padding:2px 8px;border-radius:12px;cursor:pointer;font-size:11px"
+              : "background:#fff;border:1px solid #94a3b8;color:#334155;padding:2px 8px;border-radius:12px;cursor:pointer;font-size:11px";
+            btn.innerHTML = n.final ? `◎ ${n.id} (Final)` : `${n.id}`;
+            btn.title = `Click to toggle final/accepting state for ${n.id}`;
+            btn.addEventListener("click", ev => {
+              ev.stopPropagation();
+              n.final = !n.final;
+              this.sel = n.id;
+              this.changed();
+            });
+            chipsHost.appendChild(btn);
+          });
+        }
+      }
 
       // group edges by from|to for display (merge symbols)
       const pairs = {};
@@ -189,9 +231,28 @@
         if (n.final) g.appendChild(el("circle", { cx: n.x, cy: n.y, r: R - 4, fill: "none", stroke, "stroke-width": "1.2" }));
         const tx = el("text", { x: n.x, y: n.y + 4, "text-anchor": "middle", "font-size": "13", "font-weight": "600", fill: "#223" }); tx.textContent = n.id; g.appendChild(tx);
         g.addEventListener("pointerdown", e => this.onNode(e, n.id));
+        g.addEventListener("dblclick", e => {
+          e.stopPropagation();
+          e.preventDefault();
+          n.final = !n.final;
+          this.sel = n.id;
+          this.changed();
+        });
+        g.addEventListener("contextmenu", e => {
+          e.stopPropagation();
+          e.preventDefault();
+          n.final = !n.final;
+          this.sel = n.id;
+          this.changed();
+        });
       });
 
-      const hints = { move: "Drag circles to move. Click a circle to select it, then Set start / Toggle accept.", state: "Click an empty spot to add a state.", transition: "Click the source state, then the target (same state = self-loop).", delete: "Click a state to delete it and its transitions." };
+      const hints = {
+        move: "Drag circles to move. Click a circle to select. Click '◎ Toggle Final State' or double-click to toggle accepting.",
+        state: "Click an empty spot to add a state. Double-click any circle to toggle Final (◎).",
+        transition: "Click source state, then target (same state = self-loop). Tip: Double-click any circle to toggle Final (◎).",
+        delete: "Click a state to delete it and its transitions."
+      };
       this.setHint(hints[this.mode] || "");
       this.host.querySelectorAll("[data-cmode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.cmode === this.mode)));
     }

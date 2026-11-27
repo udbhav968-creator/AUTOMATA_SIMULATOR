@@ -4,6 +4,7 @@
   const split = s => [...new Set(String(s).split(/[,\s]+/).filter(Boolean))];
 
   const NFA_EXAMPLES = [
+    { name: "Lec-23: ε-NFA to DFA (KnowledgeGate / Sanchit Jain)", src: "# KnowledgeGate Lec-23: Conversion from ε-NFA to DFA\nstates: q0, q1, q2\nalphabet: a, b\nstart: q0\nfinal: q2\nq0,a = q0\nq0,ε = q1\nq1,b = q1\nq1,a = q2\nq2,a = q2\nq2,b = q2" },
     { name: "Ends with ab", src: "# Strings over {a,b} ending in ab\nstates: q0, q1, q2\nstart: q0\nfinal: q2\nq0,a = q0,q1\nq0,b = q0\nq1,b = q2" },
     { name: "ε-NFA for a*b*c*", src: "# ε-moves let the machine skip a block\nstart: q0\nfinal: q2\nq0,a = q0\nq0,ε = q1\nq1,b = q1\nq1,ε = q2\nq2,c = q2" },
     { name: "Contains aa or bb", src: "start: s\nfinal: f\ns,a = s,x\ns,b = s,y\nx,a = f\ny,b = f\nf,a = f\nf,b = f" },
